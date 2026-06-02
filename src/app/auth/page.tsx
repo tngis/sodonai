@@ -256,9 +256,6 @@ export default function AuthPage() {
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="phone">{t("enterPhone")}</Label>
                   <div className="flex gap-2">
-                    <div className="flex h-10 w-16 shrink-0 items-center justify-center rounded-md border border-input bg-muted px-3 text-sm font-semibold text-muted-foreground">
-                      +976
-                    </div>
                     <Input
                       id="phone"
                       type="tel"
