@@ -14,6 +14,7 @@ import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { HeroVisual } from "@/components/home/hero-visual";
 import { ResultsMarquee } from "@/components/home/results-marquee";
 import { cn } from "@/lib/utils";
+import NextImage from "next/image";
 
 export default function HomePage() {
   const { t, lang } = useLang();
@@ -42,7 +43,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       {/* ── Hero ── */}
-      <section className="grain mesh-bg relative overflow-hidden px-4 pb-16 pt-12 md:px-6 md:pt-20 lg:pt-28">
+      <section className="grain mesh-bg relative overflow-hidden px-4 pb-16 pt-12 md:px-6">
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <motion.h2
             className="mb-3 font-display text-xl font-bold leading-tight tracking-tight sm:text-2xl md:text-2xl lg:text-3xl"
@@ -77,9 +78,10 @@ export default function HomePage() {
           >
             <Link
               href="/generate"
-              className={cn(buttonVariants({ variant: "shadow", size: "lg" }), "bg-primary text-purple-500 rounded-full text-lg px-8 font-bold")}
+              className={cn(buttonVariants({ variant: "shadow", size: "lg" }), "bg-primary border-2 border-[#8aa800] text-purple-500 rounded-full text-lg pl-8 pr-4 font-black gap-1")}
             >
               {t("getStarted")}
+              <NextImage src="/spark-icon.png" alt="" width={28} height={28} className="h-8 w-8 object-contain" />
             </Link>
           </motion.div>
 
