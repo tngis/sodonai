@@ -40,13 +40,11 @@ export function ResultsMarquee() {
     <div className="flex flex-col gap-3">
       <div
         className="overflow-hidden"
-        style={{ maskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)" }}
       >
         <Row />
       </div>
       <div
         className="overflow-hidden"
-        style={{ maskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent)" }}
       >
         <Row reverse />
       </div>

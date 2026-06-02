@@ -3,8 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export default function Error({
   error,
@@ -38,9 +37,9 @@ export default function Error({
         <Button onClick={reset} className="rounded-full">
           Дахин оролдох
         </Button>
-        <Link href="/" className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}>
+        <Button render={<Link href="/" />} variant="outline" className="rounded-full">
           Нүүр хуудас
-        </Link>
+        </Button>
       </div>
     </div>
   );

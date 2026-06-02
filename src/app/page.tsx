@@ -6,14 +6,13 @@ import { motion } from "motion/react";
 import { ArrowRight, Clock, Shield, Sparkles } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { getCategories, type CategoryWithPresets } from "@/lib/catalog";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { HeroVisual } from "@/components/home/hero-visual";
 import { ResultsMarquee } from "@/components/home/results-marquee";
-import { cn } from "@/lib/utils";
 import NextImage from "next/image";
 
 export default function HomePage() {
@@ -76,13 +75,15 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.24 }}
           >
-            <Link
-              href="/generate"
-              className={cn(buttonVariants({ variant: "shadow", size: "lg" }), "bg-primary border-2 border-[#8aa800] text-purple-500 rounded-full text-lg pl-8 pr-4 font-black gap-1")}
+            <Button
+              render={<Link href="/generate" />}
+              variant="shadow"
+              size="lg"
+              className="bg-primary border-2 border-[#8aa800] text-purple-500 rounded-full text-lg pl-8 pr-4 font-black gap-1"
             >
               {t("getStarted")}
               <NextImage src="/spark-icon.png" alt="" width={28} height={28} className="h-8 w-8 object-contain" />
-            </Link>
+            </Button>
           </motion.div>
 
           <HeroVisual />
@@ -107,7 +108,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Categories ── */}
-      <section className="px-4 pb-12 md:px-6">
+      <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-5xl">
           <Reveal>
             <h2 className="mb-6 font-display text-xl font-bold tracking-tight sm:text-2xl">{t("categories")}</h2>
@@ -162,8 +163,7 @@ export default function HomePage() {
             <h2 className="mb-6 font-display text-xl font-bold tracking-tight sm:text-2xl">{t("featuredPresets")}</h2>
           </Reveal>
           <div
-            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 scrollbar-hide"
-            style={{ maskImage: "linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent)" }}
+            className="flex snap-x snap-mandatory gap-4 overflow-x-auto scrollbar-hide py-4"
           >
             {loading
               ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-52 w-52 shrink-0 rounded-2xl" />)
@@ -215,7 +215,7 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA banner ── */}
-      <section className="mx-4 mb-12 md:mx-6">
+      <section className="mx-4 mb-24 md:mx-6">
         <Reveal>
           <div className="glow-brand grain relative overflow-hidden rounded-2xl">
             <div className="relative z-10 flex flex-col items-center gap-4 bg-primary px-6 py-10 text-center text-primary-foreground sm:flex-row sm:justify-between sm:text-left">
@@ -223,9 +223,9 @@ export default function HomePage() {
                 <p className="font-display text-xl font-black sm:text-2xl">Өнөөдөр эхэл</p>
                 <p className="mt-1 text-sm opacity-80">Промпт бичихгүйгээр гэр бүлийн зургаа бүтээ.</p>
               </div>
-              <Link href="/generate" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "w-full shrink-0 rounded-full font-bold sm:w-auto")}>
+              <Button render={<Link href="/generate" />} variant="secondary" size="lg" className="w-full shrink-0 rounded-full font-bold sm:w-auto">
                 {t("getStarted")}
-              </Link>
+              </Button>
             </div>
           </div>
         </Reveal>

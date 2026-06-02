@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -107,9 +107,9 @@ export default function OrdersPage() {
         ) : (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-muted-foreground">{t("noOrders")}</p>
-            <Link href="/generate" className={cn(buttonVariants({ size: "sm" }), "rounded-full")}>
+            <Button render={<Link href="/generate" />} size="sm" className="rounded-full">
               {t("startGenerating")}
-            </Link>
+            </Button>
           </div>
         )}
       </div>

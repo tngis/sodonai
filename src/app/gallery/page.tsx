@@ -7,10 +7,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Download, Share2, AlertTriangle } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 interface GalleryItem {
   id: string;
@@ -135,9 +134,9 @@ export default function GalleryPage() {
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <div className="text-5xl opacity-30">🖼️</div>
             <p className="text-muted-foreground">{t("noImages")}</p>
-            <Link href="/generate" className={cn(buttonVariants({ size: "sm" }), "rounded-full")}>
+            <Button render={<Link href="/generate" />} size="sm" className="rounded-full">
               {t("startGenerating")}
-            </Link>
+            </Button>
           </div>
         )}
       </div>

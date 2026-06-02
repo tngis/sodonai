@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import NextImage from "next/image";
 
 type Method = "phone" | "email";
 type PhoneStep = "phone" | "otp" | "name";
@@ -204,17 +205,17 @@ export default function AuthPage() {
         )}
 
         {/* Logo */}
-        <div className="mb-8 flex flex-col items-center gap-2 text-center">
+        {/* <div className="mb-8 flex flex-col items-center gap-2 text-center">
           <motion.div
-            className="glow-brand flex h-12 w-12 items-center justify-center rounded-xl bg-primary"
+            className="flex h-12 w-12 items-center justify-center rounded-xl"
             initial={{ scale: 0.6, opacity: 0, rotate: -12 }}
             animate={{ scale: 1, opacity: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 360, damping: 18 }}
           >
-            <span className="text-lg font-black text-primary-foreground">AI</span>
+            <NextImage src="/logo-primary.png" alt="" width={40} height={40} className="h-10 w-10 object-contain" priority />
           </motion.div>
           <h1 className="font-display text-2xl font-black tracking-tight">aistudio.mn</h1>
-        </div>
+        </div> */}
 
         {/* Method toggle — only show on first step */}
         {(method === "phone" ? phoneStep === "phone" : true) && (
@@ -251,7 +252,6 @@ export default function AuthPage() {
               <div className="flex flex-col gap-5">
                 <div>
                   <h2 className="text-xl font-bold">{t("phoneLogin")}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{t("enterPhone")}</p>
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="phone">{t("enterPhone")}</Label>
@@ -566,7 +566,7 @@ export default function AuthPage() {
                 </Button>
 
                 <p className="text-center text-sm text-muted-foreground">
-                  Бүртгэлтэй юу?{" "}
+                  Бүртгэлтэй юу? {" "}
                   <button
                     onClick={() => setEmailStep("signin")}
                     className="font-semibold text-primary hover:underline"

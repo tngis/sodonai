@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Нууцлалын бодлого — aistudio.mn" };
 
@@ -9,9 +8,9 @@ export default function PrivacyPage() {
   return (
     <div className="px-4 py-8 md:px-6 md:py-12">
       <div className="mx-auto max-w-2xl">
-        <Link href="/settings" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-6 -ml-2 rounded-full gap-1.5")}>
+        <Button render={<Link href="/settings" />} variant="ghost" size="sm" className="mb-6 -ml-2 rounded-full gap-1.5">
           <ArrowLeft size={14} /> Буцах
-        </Link>
+        </Button>
 
         <h1 className="mb-2 text-2xl font-black tracking-tight">Нууцлалын бодлого</h1>
         <p className="mb-8 text-sm text-muted-foreground">Сүүлд шинэчилсэн: 2026 оны 5-р сар</p>

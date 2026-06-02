@@ -11,7 +11,7 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-        shadow:"shadow-[3px_3px_0_0_#8aa800,0_0_24px_-2px_var(--brand)] transform duration-200 active:translate-y-[3px] active:translate-x-[3px] active:shadow-none",  
+        shadow:"shadow-[2px_2px_0_0_#8aa800] transform duration-200 active:translate-y-[2px] active:translate-x-[2px] active:shadow-none",  
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
@@ -45,11 +45,17 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  nativeButton,
+  render,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
+      render={render}
+      // When rendering as a non-button element (e.g. a Link/<a>), opt out of
+      // native button semantics so Base UI doesn't warn. Explicit prop wins.
+      nativeButton={nativeButton ?? render === undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

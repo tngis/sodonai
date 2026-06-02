@@ -8,7 +8,7 @@ import { Download, BookImage, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle,
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { saveToGallery, reportGeneration } from "@/app/actions/generation";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -162,9 +162,9 @@ function OutputContent() {
       <div className="flex min-h-full flex-col items-center justify-center gap-4 px-4 text-center">
         <AlertTriangle size={40} className="text-destructive" />
         <p className="font-bold">Зургийн мэдээлэл олдсонгүй.</p>
-        <Link href="/generate" className={cn(buttonVariants(), "rounded-full")}>
+        <Button render={<Link href="/generate" />} className="rounded-full">
           Шинэ зураг үүсгэх
-        </Link>
+        </Button>
       </div>
     );
   }
@@ -217,9 +217,9 @@ function OutputContent() {
               {images.length} {t("generatedImages")}
             </p>
           </div>
-          <Link href="/" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-full")}>
+          <Button render={<Link href="/" />} variant="outline" size="sm" className="rounded-full">
             {t("home")}
-          </Link>
+          </Button>
         </div>
 
         {/* Success banner */}

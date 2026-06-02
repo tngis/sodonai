@@ -6,7 +6,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Clock, Ratio, Loader2 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { getCategories, type Category, type Preset } from "@/lib/catalog";
-import { buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,7 +73,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
       <div className="flex min-h-full flex-col items-center justify-center gap-4 px-4 text-center">
         <Loader2 size={32} className="text-muted-foreground" />
         <p className="text-muted-foreground">Ангилал олдсонгүй.</p>
-        <Link href="/generate" className={cn(buttonVariants({ size: "sm" }), "rounded-full")}>Буцах</Link>
+        <Button render={<Link href="/generate" />} size="sm" className="rounded-full">Буцах</Button>
       </div>
     );
   }
@@ -179,9 +179,9 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
                       <Badge variant="secondary" className="text-xs">{preset.steps} алхам</Badge>
                     </div>
 
-                    <Link href={`/generate/${preset.id}`} className={cn(buttonVariants(), "w-full justify-center rounded-full font-bold")}>
+                    <Button render={<Link href={`/generate/${preset.id}`} />} className="w-full justify-center rounded-full font-bold">
                       {t("selectPreset")} <ArrowRight size={14} className="ml-1" />
-                    </Link>
+                    </Button>
                   </CardContent>
                 </Card>
                   ))}

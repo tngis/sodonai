@@ -9,7 +9,7 @@ import { Sun, Moon, Monitor, Globe, Lock, Bell, HelpCircle, FileText, ChevronRig
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { exportUserData, deleteAccount } from "@/app/actions/account";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -263,12 +263,13 @@ export default function SettingsPage() {
         </section>
 
         {/* Sign out */}
-        <button
+        <Button
           onClick={handleSignOut}
-          className={cn(buttonVariants({ variant: "destructive" }), "w-full justify-center rounded-full gap-2")}
+          variant="destructive"
+          className="w-full justify-center rounded-full gap-2"
         >
           <LogOut size={16} /> {t("signOut")}
-        </button>
+        </Button>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">aistudio.mn v1.0.0</p>
       </div>
