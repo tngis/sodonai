@@ -41,9 +41,9 @@ export function BeforeAfter({
   return (
     <div
       ref={ref}
-      className={cn("relative select-none overflow-hidden bg-muted", className)}
+      className={cn("relative touch-pan-y select-none overflow-hidden bg-muted", className)}
       onPointerDown={(e) => { setDragging(true); e.currentTarget.setPointerCapture(e.pointerId); move(e.clientX); }}
-      onPointerMove={(e) => dragging && move(e.clientX)}
+      onPointerMove={(e) => { if (dragging) move(e.clientX); }}
       onPointerUp={(e) => { setDragging(false); e.currentTarget.releasePointerCapture(e.pointerId); }}
       role="slider"
       aria-label="Өмнө / дараа харьцуулалт"
