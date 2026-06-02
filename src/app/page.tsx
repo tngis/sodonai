@@ -36,7 +36,6 @@ export default function HomePage() {
   const stats = [
     { icon: Clock, label: "₮1,900-с эхлэнэ" },
     { icon: Shield, label: "Хувийн, аюулгүй" },
-    { icon: Sparkles, label: "QPay дэмжинэ" },
   ];
 
   return (
