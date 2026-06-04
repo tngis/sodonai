@@ -1,7 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_ROUTES = ["/generate", "/gallery", "/orders", "/settings", "/output", "/progress"];
+// Browsing the catalog (/generate index, /category/*) is public so users can see
+// presets without logging in. Starting a generation (/generate/<presetId>) and all
+// account surfaces require auth.
+const PROTECTED_ROUTES = ["/gallery", "/orders", "/settings", "/output", "/progress", "/print", "/admin"];
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -29,7 +32,10 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isProtected = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
+  const isProtected =
+    PROTECTED_ROUTES.some((r) => pathname.startsWith(r)) ||
+    // /generate is the public catalog; /generate/<presetId> starts a paid generation.
+    pathname.startsWith("/generate/");
 
   if (isProtected && !user) {
     const redirectUrl = request.nextUrl.clone();

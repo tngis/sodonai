@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Phone, Shield, Mail, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Phone, Shield, Mail, Eye, EyeOff, CheckCircle2, Sparkles } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,21 @@ export default function AuthPage() {
 
   // ─── shared ───────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
+  // True when redirected here from a gated action (e.g. selecting a preset).
+  const [loginRequired, setLoginRequired] = useState(false);
+
+  // Detect why the user landed on auth: proxy sets ?next=/generate/<presetId>.
+  useEffect(() => {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next?.startsWith("/generate/")) setLoginRequired(true);
+  }, []);
+
+  // After a successful sign-in, return the user to where they were headed.
+  const redirectAfterAuth = () => {
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(next?.startsWith("/") ? next : "/");
+    router.refresh();
+  };
 
   // OTP countdown
   useEffect(() => {
@@ -130,8 +145,7 @@ export default function AuthPage() {
       setPhoneStep("name");
     } else {
       toast.success(t("welcomeBack"));
-      router.push("/");
-      router.refresh();
+      redirectAfterAuth();
     }
   };
 
@@ -141,8 +155,7 @@ export default function AuthPage() {
     await new Promise((r) => setTimeout(r, 600));
     setLoading(false);
     toast.success(t("welcomeBack"));
-    router.push("/");
-    router.refresh();
+    redirectAfterAuth();
   };
 
   // ─── email handlers ───────────────────────────────────────
@@ -156,8 +169,7 @@ export default function AuthPage() {
       return;
     }
     toast.success(t("welcomeBack"));
-    router.push("/");
-    router.refresh();
+    redirectAfterAuth();
   };
 
   const handleEmailSignUp = async () => {
@@ -190,6 +202,18 @@ export default function AuthPage() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
+
+        {/* Login-required notice — shown when redirected from a gated action (e.g. selecting a preset) */}
+        {loginRequired && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm"
+          >
+            <Sparkles size={16} className="mt-0.5 shrink-0 text-primary" />
+            <span className="font-medium">{t("loginRequired")}</span>
+          </motion.div>
+        )}
 
         {/* Back button */}
         {(isPhoneBack) && (

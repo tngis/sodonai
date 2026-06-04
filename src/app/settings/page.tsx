@@ -5,10 +5,11 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Sun, Moon, Monitor, Globe, Lock, Bell, HelpCircle, FileText, ChevronRight, Trash2, Download, LogOut, Loader2 } from "lucide-react";
+import { Sun, Moon, Monitor, Globe, Lock, Bell, HelpCircle, FileText, ChevronRight, Trash2, Download, LogOut, Loader2, MapPin } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { exportUserData, deleteAccount } from "@/app/actions/account";
+import { AddressManager } from "@/components/settings/address-manager";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -162,6 +163,14 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
+        </section>
+
+        {/* Delivery addresses */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <MapPin size={12} /> {t("deliveryAddresses")}
+          </div>
+          <AddressManager />
         </section>
 
         {/* Privacy */}

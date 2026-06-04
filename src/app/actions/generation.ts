@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadFile, storeOutputFile, validateImageFile, getSignedUrls, UPLOADS_BUCKET } from "@/lib/supabase/storage";
-import { getInternalPrompt } from "@/lib/presets-server";
+import { getPresetModelConfig } from "@/lib/presets-server";
 import { callAI } from "@/lib/ai/generate";
 import type { Database } from "@/lib/supabase/types";
 
@@ -31,7 +31,7 @@ export async function submitOrder(formData: FormData): Promise<SubmitOrderResult
   const intensity = formData.has("intensity") ? Number(formData.get("intensity")) : null;
   const isPrivate = formData.get("isPrivate") !== "false";
 
-  const internalPrompt = await getInternalPrompt(presetId);
+  const { prompt: internalPrompt, model } = await getPresetModelConfig(presetId);
 
   // Collect and validate uploaded files
   const files: File[] = [];
@@ -93,6 +93,7 @@ export async function submitOrder(formData: FormData): Promise<SubmitOrderResult
       userId: user.id,
       uploadPaths,
       internalPrompt,
+      model,
       options: { ratio, background, intensity },
     })
   );
@@ -106,6 +107,7 @@ export interface RunGenerationParams {
   userId: string;
   uploadPaths: string[];
   internalPrompt: string;
+  model: string;
   options: { ratio: string; background: string | null; intensity: number | null };
 }
 
@@ -115,6 +117,7 @@ export async function runGeneration({
   userId,
   uploadPaths,
   internalPrompt,
+  model,
   options,
 }: RunGenerationParams): Promise<void> {
   const admin = createAdminClient();
@@ -135,7 +138,7 @@ export async function runGeneration({
     await updateGen({ progress: 20 });
 
     log("generation.ai_call");
-    const { imageUrls } = await callAI({ imageUrls: signedUrls, prompt: internalPrompt, options });
+    const { imageUrls } = await callAI({ model, imageUrls: signedUrls, prompt: internalPrompt, options });
 
     await updateGen({ progress: 80 });
 
@@ -146,6 +149,25 @@ export async function runGeneration({
 
     await updateGen({ status: "done", progress: 100, result_urls: resultPaths });
     await admin.from("orders").update({ status: "completed" } as OrderUpdate).eq("id", orderId);
+
+    // Auto-save every output to the user's gallery (assets). Deduped on
+    // generation_id so a re-run never double-inserts.
+    const { data: existingAssets } = await admin
+      .from("assets")
+      .select("id")
+      .eq("generation_id", generationId)
+      .limit(1);
+    if (!existingAssets?.length) {
+      await admin.from("assets").insert(
+        resultPaths.map((path) => ({
+          user_id: userId,
+          generation_id: generationId,
+          storage_path: path,
+          is_private: true,
+        }))
+      );
+    }
+
     log("generation.done", { outputCount: resultPaths.length });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Generation failed";

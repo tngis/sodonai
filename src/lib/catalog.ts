@@ -16,6 +16,7 @@ export interface Category {
   description_en: string;
   icon: string;
   sort_order: number;
+  is_active: boolean;
 }
 
 export interface Preset {
@@ -23,6 +24,8 @@ export interface Preset {
   category_id: string;
   name_mn: string;
   name_en: string;
+  description_mn: string;
+  description_en: string;
   output_ratio: string;
   steps: number;
   price_mnt: number;
@@ -32,7 +35,10 @@ export interface Preset {
   example_inputs: string[];
   options: PresetOptions | null;
   required_uploads: string[] | null;
+  required_min: number;
+  required_max: number;
   sort_order: number;
+  is_active: boolean;
 }
 
 export interface CategoryWithPresets extends Category {
@@ -42,8 +48,8 @@ export interface CategoryWithPresets extends Category {
 export async function getCategories(): Promise<CategoryWithPresets[]> {
   const supabase = createClient();
   const [catsRes, presetsRes] = await Promise.all([
-    supabase.from("categories").select("*").order("sort_order"),
-    supabase.from("presets_public").select("*").order("sort_order"),
+    supabase.from("categories").select("*").eq("is_active", true).order("sort_order"),
+    supabase.from("presets_public").select("*").eq("is_active", true).order("sort_order"),
   ]);
   const categories = (catsRes.data ?? []) as Category[];
   const presets = (presetsRes.data ?? []) as Preset[];
@@ -57,7 +63,7 @@ export async function getPreset(
   presetId: string
 ): Promise<{ category: Category; preset: Preset } | null> {
   const supabase = createClient();
-  const presetRes = await supabase.from("presets_public").select("*").eq("id", presetId).single();
+  const presetRes = await supabase.from("presets_public").select("*").eq("id", presetId).eq("is_active", true).single();
   if (presetRes.error || !presetRes.data) return null;
   const preset = presetRes.data as Preset;
   const catRes = await supabase.from("categories").select("*").eq("id", preset.category_id).single();

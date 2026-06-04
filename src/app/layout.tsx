@@ -80,7 +80,12 @@ export default function RootLayout({
       <body className="flex h-full flex-col overflow-hidden">
         <Providers>
           <Header />
-          <main className="flex-1 overflow-y-auto pb-20 md:pb-4">{children}</main>
+          <main className="flex-1 overflow-y-auto">
+            {/* Padding lives on this inner wrapper, not <main>: WebKit/Blink drop a
+                scroll container's own padding-bottom at scroll end, hiding content
+                behind the fixed bottom nav. A child's padding is honored. */}
+            <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-4">{children}</div>
+          </main>
           <MobileBottomNav />
           <Toaster />
         </Providers>

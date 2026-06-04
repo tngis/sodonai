@@ -37,7 +37,7 @@ export function HeroVisual() {
       {/* Glow core */}
       <div
         aria-hidden
-        className="absolute h-40 w-40 rounded-full blur-3xl"
+        className="absolute h-40 w-40 md:h-60 md:w-80 rounded-full blur-3xl"
         style={{ background: "var(--brand)", opacity: 0.25, animation: reduce ? undefined : "pulse-glow 4s ease-in-out infinite" }}
       />
       {cards.map((c, i) => {

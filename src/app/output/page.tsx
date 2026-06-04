@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Download, BookImage, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Frame, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { saveToGallery, reportGeneration } from "@/app/actions/generation";
+import { reportGeneration } from "@/app/actions/generation";
 import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
@@ -33,7 +33,6 @@ function OutputContent() {
   const [signedImageUrls, setSignedImageUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
-  const [savingGallery, setSavingGallery] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
 
   const load = useCallback(async () => {
@@ -110,19 +109,6 @@ function OutputContent() {
   const handleDownloadAll = async () => {
     for (let i = 0; i < signedImageUrls.length; i++) {
       await handleDownload(signedImageUrls[i], i);
-    }
-  };
-
-  const handleSaveGallery = async () => {
-    if (!generationId) return;
-    setSavingGallery(true);
-    try {
-      await saveToGallery(generationId);
-      toast.success(t("saveGallery") + " ✓");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
-    } finally {
-      setSavingGallery(false);
     }
   };
 
@@ -280,7 +266,7 @@ function OutputContent() {
           ))}
         </div>
 
-        {/* Actions */}
+        {/* Actions — Share · Download · Боднор авах (auto-saved to gallery already) */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Button onClick={handleDownloadAll} className="rounded-full font-bold">
             <Download size={16} className="mr-2" /> {t("download")}
@@ -288,20 +274,16 @@ function OutputContent() {
           <Button
             variant="outline"
             className="rounded-full"
-            onClick={handleSaveGallery}
-            disabled={savingGallery}
-          >
-            {savingGallery
-              ? <><Loader2 size={16} className="mr-2 animate-spin" /> Хадгалж байна</>
-              : <><BookImage size={16} className="mr-2" /> {t("saveGallery")}</>
-            }
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-full"
             onClick={() => images[0] && handleShare(images[0])}
           >
             <Share2 size={16} className="mr-2" /> {t("share")}
+          </Button>
+          <Button
+            render={<Link href={`/print?gen=${generationId}`} />}
+            className="rounded-full font-bold bg-primary text-black"
+            variant="shadow"
+          >
+            <Frame size={16} className="mr-2" /> {t("orderPrint")}
           </Button>
           <Button variant="ghost" className="rounded-full text-muted-foreground" onClick={handleRegenerate}>
             <RefreshCw size={16} className="mr-2" /> {t("regenerate")}

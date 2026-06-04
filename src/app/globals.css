@@ -125,6 +125,11 @@
 }
 
 @layer utilities {
+  /* iOS home-indicator safe area */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   .brand-gradient {
     background: linear-gradient(135deg, #D1FE18 0%, #a8cc00 100%);
   }

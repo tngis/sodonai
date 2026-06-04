@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, ArrowRight, Upload, Camera, AlertTriangle, Check, X, Loader2, CheckCircle2, Plus } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { getPreset, type Category, type Preset } from "@/lib/catalog";
-import { banks, BG_SWATCHES } from "@/lib/banks";
+import { banks } from "@/lib/banks";
 import { createPaymentIntent, type PaymentIntentResult } from "@/app/actions/payment";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,11 +39,34 @@ function checkDimensions(file: File): Promise<string | null> {
   });
 }
 
-// Map a ratio label ("4:3", "16:9", "Original") to a CSS aspect-ratio value.
-function ratioToAspect(ratio: string): string {
+// Parse a ratio label ("4:3", "16:9") to a numeric aspect (width / height).
+// Returns null for "Original"/unknown — the caller falls back to the input image's aspect.
+function parseRatio(ratio: string): number | null {
   const m = ratio.match(/^(\d+)\s*:\s*(\d+)$/);
-  if (m) return `${m[1]} / ${m[2]}`;
-  return "1 / 1"; // "Original" / unknown → square preview
+  if (m) return Number(m[1]) / Number(m[2]);
+  return null;
+}
+
+// Example input thumbnail — shows the real preset sample image, falling back
+// to the category emoji if the src is missing or fails to load.
+function ExampleThumb({ src, fallback }: { src: string; fallback: string }) {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return (
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-muted text-3xl">
+        {fallback}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Жишээ оролт"
+      className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-foreground/10"
+      onError={() => setError(true)}
+    />
+  );
 }
 
 type Step = 1 | 2 | 3;
@@ -72,6 +95,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
   const [intensity, setIntensity] = useState(50);
   const [isPrivate, setIsPrivate] = useState(true);
   const [ratio, setRatio] = useState("");
+  // Aspect (width / height) of the first uploaded image — used to render the
+  // "Original" preview at the real input proportions.
+  const [originalAspect, setOriginalAspect] = useState<number | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [payment, setPayment] = useState<PaymentPhase>({ kind: "idle" });
 
@@ -87,14 +113,33 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
     });
   }, [presetId, router]);
 
-  // How many images this preset expects (used as the upload cap + hint).
-  const maxUploads = preset?.required_uploads?.length || 5;
+  // How many images this preset expects (min required + max cap).
+  const minUploads = preset?.required_min ?? 1;
+  const maxUploads = preset?.required_max ?? 9;
   const finalFiles = uploads;
-  const canContinue = uploads.length > 0;
+  const canContinue = uploads.length >= minUploads;
 
+  // The preset's own output_ratio is always the first (leftmost) chip and the
+  // default selection; the rest are common photo ratios the user can switch to.
+  const RATIO_CHOICES = ["1:1", "4:3", "3:4", "16:9", "9:16", "4:5", "3:2", "2:3"];
   const ratioOptions = preset
-    ? [preset.output_ratio, "1:1", "16:9", "9:16"].filter((v, i, a) => a.indexOf(v) === i)
+    ? [preset.output_ratio, ...RATIO_CHOICES].filter((v, i, a) => a.indexOf(v) === i)
     : [];
+
+  // Measure the first upload's aspect ratio so "Original" previews at its real shape.
+  useEffect(() => {
+    const file = uploads[0];
+    if (!file) { setOriginalAspect(null); return; }
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => { setOriginalAspect(img.width / img.height); URL.revokeObjectURL(url); };
+    img.onerror = () => { URL.revokeObjectURL(url); };
+    img.src = url;
+  }, [uploads]);
+
+  // Aspect used by the live preview frame: the chosen numeric ratio, else the
+  // input image's aspect (for "Original"), else a square fallback.
+  const previewAspect = parseRatio(ratio) ?? originalAspect ?? 1;
 
   // Validate a single image (type, size, min dimensions). Returns error or null.
   const validateFile = useCallback(async (file: File): Promise<string | null> => {
@@ -106,7 +151,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
   // Validate and APPEND new files to the existing selection (dedupe, capped).
   const validateAndAddFiles = useCallback(async (files: FileList | null) => {
     if (!files || !preset) return;
-    const cap = preset.required_uploads?.length || 5;
+    const cap = preset.required_max ?? 9;
     const incoming = Array.from(files);
     const valid: File[] = [];
     for (const file of incoming) {
@@ -316,7 +361,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                   </motion.div>
                   <div>
                     <p className="font-semibold">{t("uploadDesc")}</p>
-                    <p className="text-sm text-muted-foreground">{preset.required_uploads?.join(", ")}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {minUploads === maxUploads ? `${maxUploads} зураг` : `${minUploads}–${maxUploads} зураг`}
+                    </p>
                   </div>
                   <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                     <Camera size={11} /> {t("cameraCapture")}
@@ -370,13 +417,8 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
             <div>
               <p className="mb-2 text-sm font-semibold text-muted-foreground">{t("exampleInputs")}</p>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                {preset.example_inputs.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-muted text-3xl"
-                  >
-                    {category.icon}
-                  </div>
+                {preset.example_inputs.map((src, idx) => (
+                  <ExampleThumb key={idx} src={src} fallback={category.icon} />
                 ))}
               </div>
             </div>
@@ -384,8 +426,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
             <Button
               onClick={() => setStep(2)}
               disabled={!canContinue}
-              className="w-full rounded-full font-bold not-disabled:glow-brand"
+              className="w-full rounded-full font-bold bg-primary text-black"
               size="lg"
+              variant="shadow"
             >
               {t("continueBtn")} <ArrowRight size={16} className="ml-2" />
             </Button>
@@ -419,48 +462,22 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                   ))}
                 </div>
                 {/* Live preview frame */}
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-muted/50 ring-1 ring-foreground/10">
+                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-xl bg-muted/50 ring-1 ring-foreground/10">
                   <motion.div
                     layout
                     transition={{ type: "spring", stiffness: 300, damping: 26 }}
                     className="flex max-h-16 max-w-16 items-center justify-center rounded-md bg-linear-to-br from-primary/30 to-primary/10 ring-1 ring-primary/40"
-                    style={{ aspectRatio: ratioToAspect(ratio), width: ratioToAspect(ratio).startsWith("9") ? "auto" : "3.5rem", height: ratioToAspect(ratio).startsWith("9") ? "3.5rem" : "auto" }}
+                    style={{
+                      aspectRatio: String(previewAspect),
+                      width: previewAspect >= 1 ? "3.5rem" : "auto",
+                      height: previewAspect >= 1 ? "auto" : "3.5rem",
+                    }}
                   >
                     <span className="text-[9px] font-bold text-primary">{ratio}</span>
                   </motion.div>
                 </div>
               </div>
             </div>
-
-            {/* Background preset — visual swatches */}
-            {preset.options?.backgroundPresets && (
-              <div className="flex flex-col gap-2">
-                <Label className="font-semibold">{t("backgroundPreset")}</Label>
-                <div className="flex flex-wrap gap-2.5">
-                  {preset.options.backgroundPresets.map((bg) => {
-                    const selected = selectedBg === bg;
-                    return (
-                      <motion.button
-                        key={bg}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setSelectedBg(bg)}
-                        className={cn(
-                          "flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-sm font-medium transition-colors",
-                          selected ? "border-primary glow-brand-sm" : "border-border hover:border-primary/50"
-                        )}
-                      >
-                        <span
-                          className="h-6 w-6 rounded-full ring-1 ring-foreground/10"
-                          style={{ background: BG_SWATCHES(bg) }}
-                        />
-                        {bg}
-                        {selected && <Check size={14} className="text-primary" />}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Style intensity — controlled slider */}
             {preset.options?.styleIntensityDefault !== undefined && (
@@ -503,7 +520,8 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
             <Button
               onClick={() => setStep(3)}
-              className="w-full rounded-full font-bold glow-brand"
+              className="w-full rounded-full font-bold bg-primary text-black"
+              variant="shadow"
               size="lg"
             >
               {t("continueBtn")} <ArrowRight size={16} className="ml-2" />
@@ -635,8 +653,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                 <Button
                   onClick={handleCreateInvoice}
                   disabled={!termsAccepted || payment.kind === "creating"}
-                  className="w-full rounded-full font-bold"
+                  className="w-full rounded-full font-bold bg-primary text-black"
                   size="lg"
+                  variant="shadow"
                 >
                   {payment.kind === "creating" ? (
                     <><Loader2 size={16} className="mr-2 animate-spin" /> Нэхэмжлэл үүсгэж байна...</>

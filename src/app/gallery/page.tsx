@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
-import { Download, Share2, AlertTriangle } from "lucide-react";
+import { Download, Share2, Frame, AlertTriangle } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ interface GalleryItem {
 
 export default function GalleryPage() {
   const { t } = useLang();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
@@ -125,6 +127,13 @@ export default function GalleryPage() {
                     aria-label="Хуваалцах"
                   >
                     <Share2 size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); router.push(`/print?asset=${encodeURIComponent(img.storage_path)}`); }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-black hover:brightness-110"
+                    aria-label={t("orderPrint")}
+                  >
+                    <Frame size={14} />
                   </button>
                 </div>
               </motion.div>

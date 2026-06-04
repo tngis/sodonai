@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPayment } from "@/lib/qpay";
 import { runGeneration } from "@/app/actions/generation";
-import { getInternalPrompt } from "@/lib/presets-server";
+import { getPresetModelConfig } from "@/lib/presets-server";
 import type { Database } from "@/lib/supabase/types";
 
 type PaymentRow = Database["public"]["Tables"]["payments"]["Row"];
@@ -40,8 +40,16 @@ export async function GET(
   }
   const payment = rawPayment as unknown as PaymentRow;
 
-  // Already confirmed in a previous poll — return the generation ID
+  // Already confirmed in a previous poll
   if (payment.status === "success") {
+    const { data: ord } = await supabase
+      .from("orders")
+      .select("kind")
+      .eq("id", payment.order_id)
+      .single();
+    if ((ord as { kind?: string } | null)?.kind === "print") {
+      return NextResponse.json({ status: "paid", kind: "print", orderId: payment.order_id });
+    }
     const { data: gen } = await supabase
       .from("generations")
       .select("id")
@@ -49,7 +57,7 @@ export async function GET(
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
-    return NextResponse.json({ status: "paid", generationId: gen?.id ?? null });
+    return NextResponse.json({ status: "paid", kind: "generation", generationId: gen?.id ?? null });
   }
 
   // Ask QPay (or mock) if the user has paid
@@ -87,6 +95,13 @@ export async function GET(
     .single();
 
   const order = rawOrder as unknown as OrderRow;
+
+  // Print orders have no AI generation — admin fulfils them manually.
+  if (order.kind === "print" || !order.preset_id) {
+    return NextResponse.json({ status: "paid", kind: "print", orderId: payment.order_id });
+  }
+  const presetId = order.preset_id;
+
   const snapshot = order.options_snapshot as unknown as OptionsSnapshot;
 
   // Create queued generation record
@@ -106,7 +121,7 @@ export async function GET(
     return NextResponse.json({ error: "Failed to create generation" }, { status: 500 });
   }
 
-  const internalPrompt = await getInternalPrompt(order.preset_id);
+  const { prompt: internalPrompt, model } = await getPresetModelConfig(presetId);
 
   // Kick off generation after this response is sent
   after(() =>
@@ -116,6 +131,7 @@ export async function GET(
       userId: user.id,
       uploadPaths: snapshot.uploadPaths ?? [],
       internalPrompt,
+      model,
       options: {
         ratio: snapshot.ratio,
         background: snapshot.background,
@@ -124,5 +140,5 @@ export async function GET(
     })
   );
 
-  return NextResponse.json({ status: "paid", generationId: gen.id });
+  return NextResponse.json({ status: "paid", kind: "generation", generationId: gen.id });
 }

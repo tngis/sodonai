@@ -3,19 +3,31 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
+import { Frame } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
+import { findFrame, findSize } from "@/lib/print-catalog";
+import { OrderTimeline } from "@/components/print/order-timeline";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import type { PrintProductionStatus, PrintDeliveryStatus } from "@/lib/supabase/types";
 
 interface OrderItem {
   id: string;
-  preset_id: string;
+  preset_id: string | null;
+  kind: string;
   status: string;
   amount_mnt: number;
   created_at: string;
+}
+
+interface PrintDetail {
+  frame_id: string;
+  size_id: string;
+  production_status: PrintProductionStatus;
+  delivery_status: PrintDeliveryStatus;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -36,15 +48,17 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [presetMap, setPresetMap] = useState<Record<string, { name_mn: string; name_en: string }>>({});
+  const [printMap, setPrintMap] = useState<Record<string, PrintDetail>>({});
 
   const load = useCallback(async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const [ordersRes, presetsRes] = await Promise.all([
-      supabase.from("orders").select("id, preset_id, status, amount_mnt, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+    const [ordersRes, presetsRes, printsRes] = await Promise.all([
+      supabase.from("orders").select("id, preset_id, kind, status, amount_mnt, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("presets_public").select("id, name_mn, name_en"),
+      supabase.from("print_orders").select("order_id, frame_id, size_id, production_status, delivery_status").eq("user_id", user.id),
     ]);
 
     setOrders((ordersRes.data ?? []) as OrderItem[]);
@@ -55,6 +69,13 @@ export default function OrdersPage() {
       map[row.id] = row;
     }
     setPresetMap(map);
+
+    const pmap: Record<string, PrintDetail> = {};
+    for (const pr of (printsRes.data ?? [])) {
+      const row = pr as { order_id: string } & PrintDetail;
+      pmap[row.order_id] = row;
+    }
+    setPrintMap(pmap);
     setLoading(false);
   }, []);
 
@@ -78,28 +99,46 @@ export default function OrdersPage() {
         ) : orders.length > 0 ? (
           <div className="flex flex-col gap-3">
             {orders.map((order, i) => {
-              const p = presetMap[order.preset_id];
-              const presetName = p ? (lang === "mn" ? p.name_mn : p.name_en) : order.preset_id;
+              const print = order.kind === "print" ? printMap[order.id] : undefined;
+              const p = order.preset_id ? presetMap[order.preset_id] : undefined;
+              const title = print
+                ? `${t("orderPrint")} · ${findSize(print.size_id)?.label ?? print.size_id}`
+                : p
+                ? (lang === "mn" ? p.name_mn : p.name_en)
+                : order.preset_id ?? order.id.slice(0, 8);
               return (
                 <motion.div
                   key={order.id}
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: Math.min(i * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
-                  className="glass flex items-center justify-between rounded-xl p-4"
+                  className="glass flex flex-col gap-3 rounded-xl p-4"
                 >
-                  <div className="flex flex-col gap-0.5 min-w-0">
-                    <p className="truncate font-semibold">{presetName}</p>
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {order.id.slice(0, 8).toUpperCase()} · {formatDate(order.created_at)}
-                    </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <p className="flex items-center gap-1.5 truncate font-semibold">
+                        {print && <Frame size={14} className="shrink-0 text-primary" />}
+                        {title}
+                      </p>
+                      <p className="font-mono text-xs text-muted-foreground">
+                        {order.id.slice(0, 8).toUpperCase()} · {formatDate(order.created_at)}
+                        {print && ` · ${findFrame(print.frame_id)?.name_mn ?? print.frame_id}`}
+                      </p>
+                    </div>
+                    <div className="ml-3 flex shrink-0 items-center gap-3">
+                      <Badge className={cn("border-0 text-xs font-semibold", STATUS_STYLE[order.status] ?? STATUS_STYLE.pending)}>
+                        {statusLabel[order.status] ?? order.status}
+                      </Badge>
+                      <span className="font-bold">₮{order.amount_mnt.toLocaleString()}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-3 shrink-0">
-                    <Badge className={cn("border-0 text-xs font-semibold", STATUS_STYLE[order.status] ?? STATUS_STYLE.pending)}>
-                      {statusLabel[order.status] ?? order.status}
-                    </Badge>
-                    <span className="font-bold">₮{order.amount_mnt.toLocaleString()}</span>
-                  </div>
+
+                  {/* Print fulfillment timeline (only once the order is paid) */}
+                  {print && order.status !== "pending" && (
+                    <div className="border-t border-border/60 pt-3">
+                      <OrderTimeline production={print.production_status} delivery={print.delivery_status} />
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

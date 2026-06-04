@@ -41,7 +41,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       {/* ── Hero ── */}
-      <section className="grain mesh-bg relative overflow-hidden px-4 pb-16 pt-12 md:px-6">
+      <section className=" relative overflow-hidden px-4 pb-16 pt-12 md:px-6">
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <motion.h2
             className="mb-3 font-display text-xl font-bold leading-tight tracking-tight sm:text-2xl md:text-2xl lg:text-3xl"
@@ -214,7 +214,7 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA banner ── */}
-      <section className="mx-4 mb-24 md:mx-6">
+      <section className="mx-4 mb-4 md:mx-6">
         <Reveal>
           <div className="glow-brand grain relative overflow-hidden rounded-2xl">
             <div className="relative z-10 flex flex-col items-center gap-4 bg-primary px-6 py-10 text-center text-primary-foreground sm:flex-row sm:justify-between sm:text-left">

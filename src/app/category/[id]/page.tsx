@@ -142,7 +142,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
 
                 <motion.div layout className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {shown.map((preset) => (
-                <Card key={preset.id} className="overflow-hidden py-0 border-border transition-all hover:border-primary hover:shadow-md">
+                <Card key={preset.id} className="gap-0 overflow-hidden py-0 border-border transition-all hover:border-primary hover:shadow-md">
 
                   {/* ── Single-subject presets get a before/after slider; ── */}
                   {/* ── multi-input (e.g. family) get a single example image. ── */}
@@ -151,10 +151,10 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
                       before={preset.example_inputs[0]}
                       after={preset.example_output}
                       fallback={category.icon}
-                      className="h-44"
+                      className="h-52"
                     />
                   ) : (
-                    <div className="h-44 overflow-hidden bg-muted">
+                    <div className="h-52 overflow-hidden bg-muted">
                       <PresetCardImage
                         src={preset.example_output}
                         alt={lang === "mn" ? preset.name_mn : preset.name_en}
@@ -164,10 +164,14 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
                   )}
 
                   <CardContent className="p-4">
-                    <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="mb-2 flex items-start justify-between gap-2">
                       <h3 className="font-bold">{lang === "mn" ? preset.name_mn : preset.name_en}</h3>
                       <span className="shrink-0 text-lg font-black text-primary">₮{preset.price_mnt.toLocaleString()}</span>
                     </div>
+
+                    <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
+                      {lang === "mn" ? preset.description_mn : preset.description_en}
+                    </p>
 
                     <div className="mb-3 flex flex-wrap gap-2">
                       <Badge variant="secondary" className="flex items-center gap-1 text-xs">
@@ -179,8 +183,8 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
                       <Badge variant="secondary" className="text-xs">{preset.steps} алхам</Badge>
                     </div>
 
-                    <Button render={<Link href={`/generate/${preset.id}`} />} className="w-full justify-center rounded-full font-bold">
-                      {t("selectPreset")} <ArrowRight size={14} className="ml-1" />
+                    <Button render={<Link href={`/generate/${preset.id}`} />} variant="shadow" className="w-full bg-primary text-black justify-center rounded-full font-bold">
+                      Зураг үүсгэх <ArrowRight size={14} className="ml-1" />
                     </Button>
                   </CardContent>
                 </Card>
