@@ -144,11 +144,10 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
                   {shown.map((preset) => (
                 <Card key={preset.id} className="gap-0 overflow-hidden py-0 border-border transition-all hover:border-primary hover:shadow-md">
 
-                  {/* ── Single-subject presets get a before/after slider; ── */}
-                  {/* ── multi-input (e.g. family) get a single example image. ── */}
-                  {preset.example_inputs.length === 1 ? (
+                  {/* ── Admin chooses per preset: before/after slider or a single image. ── */}
+                  {preset.example_type === "before_after" ? (
                     <BeforeAfter
-                      before={preset.example_inputs[0]}
+                      before={preset.example_before ?? ""}
                       after={preset.example_output}
                       fallback={category.icon}
                       className="h-52"

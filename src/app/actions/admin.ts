@@ -43,6 +43,8 @@ export interface PresetInput {
   internal_prompt: string;
   ai_model: string | null;
   example_output: string;
+  example_before: string | null;
+  example_type: string;
   example_inputs: string[];
   options: Json | null;
   required_min: number;

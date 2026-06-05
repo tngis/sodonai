@@ -83,6 +83,8 @@ export interface Database {
           internal_prompt: string;
           ai_model: string | null;
           example_output: string;
+          example_before: string | null;
+          example_type: string;
           example_inputs: string[];
           options: Json | null;
           required_uploads: string[] | null;
@@ -107,6 +109,8 @@ export interface Database {
           internal_prompt: string;
           ai_model?: string | null;
           example_output: string;
+          example_before?: string | null;
+          example_type?: string;
           example_inputs: string[];
           options?: Json | null;
           required_uploads?: string[] | null;
@@ -433,6 +437,8 @@ export interface Database {
           eta_min: string;
           warnings_mn: string[];
           example_output: string;
+          example_before: string | null;
+          example_type: string;
           example_inputs: string[];
           options: import("./types").Json | null;
           required_uploads: string[] | null;

@@ -33,6 +33,8 @@ export interface Preset {
   eta_min: string;
   warnings_mn: string[];
   example_output: string;
+  example_before: string | null;
+  example_type: string;
   example_inputs: string[];
   options: PresetOptions | null;
   required_uploads: string[] | null;

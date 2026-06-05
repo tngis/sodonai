@@ -28,6 +28,10 @@ type CategoryLite = { id: string; name_mn: string };
 // Static selector options. Edit these lists to change what admins can pick.
 const OUTPUT_RATIO_OPTIONS = ["Original", "1:1", "4:3", "3:4", "4:5", "3:2", "2:3", "16:9", "9:16"];
 const AI_MODEL_OPTIONS = ["face-preserve-v1", "restore-v1", "colorize-v1"];
+const EXAMPLE_TYPE_LABELS: Record<string, string> = {
+  single: "Ганц зураг",
+  before_after: "Өмнө / дараа (гулсуур)",
+};
 
 // Keep the current value selectable even if it isn't in the static list.
 const withCurrent = (opts: string[], current: string) =>
@@ -63,6 +67,8 @@ interface PresetForm {
   internal_prompt: string;
   ai_model: string;
   example_output: string;
+  example_before: string;
+  example_type: string;
   example_inputs: string[];
   optionsText: string;
   required_min: number;
@@ -87,6 +93,8 @@ function rowToForm(p: PresetRow): PresetForm {
     internal_prompt: p.internal_prompt,
     ai_model: p.ai_model ?? "",
     example_output: p.example_output,
+    example_before: p.example_before ?? "",
+    example_type: p.example_type ?? "single",
     example_inputs: p.example_inputs ?? [],
     optionsText: p.options ? JSON.stringify(p.options, null, 2) : "",
     required_min: p.required_min ?? 1,
@@ -102,6 +110,7 @@ function emptyForm(categories: CategoryLite[]): PresetForm {
     description_mn: "", description_en: "",
     output_ratio: "Original", steps: 1, price_mnt: 1900, eta_min: "1–2",
     warnings: [], internal_prompt: "", ai_model: AI_MODEL_OPTIONS[0], example_output: "",
+    example_before: "", example_type: "single",
     example_inputs: [], optionsText: "", required_min: 1, required_max: 9, sort_order: 0, is_active: true,
   };
 }
@@ -133,6 +142,8 @@ function buildInput(f: PresetForm): PresetInput {
     internal_prompt: f.internal_prompt,
     ai_model: f.ai_model.trim() || null,
     example_output: f.example_output,
+    example_before: f.example_type === "before_after" ? (f.example_before || null) : null,
+    example_type: f.example_type,
     example_inputs: f.example_inputs.filter(Boolean),
     options,
     required_min: f.required_min,
@@ -361,7 +372,33 @@ export function PresetManager({
                 onMaxChange={(v) => patch({ required_max: v })}
               />
 
-              <ImageField label="Жишээ гаралт (example output)" value={editing.example_output} onChange={(v) => patch({ example_output: v })} />
+              {/* Example output: single image, or a before/after slider */}
+              <div className="flex flex-col gap-3 rounded-xl border border-border p-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-sm font-semibold">Жишээ гаралтын төрөл</Label>
+                  <Select
+                    items={EXAMPLE_TYPE_LABELS}
+                    value={editing.example_type}
+                    onValueChange={(v) => { if (typeof v === "string") patch({ example_type: v }); }}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(EXAMPLE_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {editing.example_type === "before_after" ? (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <ImageField label="Өмнө (before)" value={editing.example_before} onChange={(v) => patch({ example_before: v })} />
+                    <ImageField label="Дараа (after)" value={editing.example_output} onChange={(v) => patch({ example_output: v })} />
+                  </div>
+                ) : (
+                  <ImageField label="Жишээ гаралт (example output)" value={editing.example_output} onChange={(v) => patch({ example_output: v })} />
+                )}
+              </div>
               <ImageListField
                 label="Жишээ оролтууд (example inputs)"
                 value={editing.example_inputs}
