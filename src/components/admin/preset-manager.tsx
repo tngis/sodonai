@@ -231,21 +231,23 @@ export function PresetManager({
       <div className="flex flex-col gap-2">
         {initialPresets.map((p) => (
           <Card key={p.id}>
-            <CardContent className="flex items-center gap-3 p-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-foreground/10">
+            <CardContent className="flex items-center gap-1 p-3">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-foreground/10">
                 {p.example_output ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.example_output} alt="" className="h-full w-full object-cover" />
                 ) : null}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">
+              <div className="min-w-0 flex-1 ml-2">
+                <p className="truncate font-semibold mb-2">
                   {p.name_mn}
                   {!p.is_active && <Badge variant="secondary" className="ml-2 text-xs">Идэвхгүй</Badge>}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {catName(p.category_id)} · ₮{p.price_mnt.toLocaleString()} · {p.output_ratio}
-                  {p.ai_model ? ` · ${p.ai_model}` : ""}
+                  {catName(p.category_id)}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  ₮{p.price_mnt.toLocaleString()} · {p.output_ratio}
                 </p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => toggleActive(p)} aria-label="Идэвх солих">

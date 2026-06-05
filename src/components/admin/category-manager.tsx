@@ -102,15 +102,15 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
       <div className="flex flex-col gap-2">
         {initialCategories.map((c) => (
           <Card key={c.id}>
-            <CardContent className="flex items-center gap-3 p-3">
+            <CardContent className="flex items-center gap-1 p-3">
               {c.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.image_url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                <img src={c.image_url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
               ) : (
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center text-2xl">{c.icon}</span>
+                <span className="flex h-16 w-16 shrink-0 items-center justify-center text-2xl">{c.icon}</span>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">
+              <div className="min-w-0 flex-1 ml-2">
+                <p className="truncate font-semibold mb-2">
                   {c.name_mn}
                   {!c.is_active && <Badge variant="secondary" className="ml-2 text-xs">Идэвхгүй</Badge>}
                 </p>

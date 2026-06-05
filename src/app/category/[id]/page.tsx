@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Clock, Ratio, Loader2 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
-import { getCategories, type Category, type Preset } from "@/lib/catalog";
+import { getCategory, type Category, type Preset } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,8 +46,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
   const [ratioFilter, setRatioFilter] = useState<string>("all");
 
   useEffect(() => {
-    getCategories().then((cats) => {
-      const cat = cats.find((c) => c.id === id);
+    getCategory(id).then((cat) => {
       if (!cat) { setNotFound(true); setLoading(false); return; }
       setCategory(cat);
       setPresets(cat.presets);

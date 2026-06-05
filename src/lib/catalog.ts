@@ -46,7 +46,18 @@ export interface CategoryWithPresets extends Category {
   presets: Preset[];
 }
 
-export async function getCategories(): Promise<CategoryWithPresets[]> {
+// Simple in-memory cache so navigating between pages (home → generate →
+// category) within a session doesn't re-fetch the whole catalog each time.
+// Categories/presets change rarely; a short TTL keeps it fresh enough and a
+// full page reload clears it. Call invalidateCatalog() after admin edits.
+const CATALOG_TTL_MS = 60_000;
+let catalogCache: { at: number; promise: Promise<CategoryWithPresets[]> } | null = null;
+
+export function invalidateCatalog() {
+  catalogCache = null;
+}
+
+async function fetchCategories(): Promise<CategoryWithPresets[]> {
   const supabase = createClient();
   const [catsRes, presetsRes] = await Promise.all([
     supabase.from("categories").select("*").eq("is_active", true).order("sort_order"),
@@ -58,6 +69,30 @@ export async function getCategories(): Promise<CategoryWithPresets[]> {
     ...cat,
     presets: presets.filter((p) => p.category_id === cat.id),
   }));
+}
+
+export function getCategories({ force = false }: { force?: boolean } = {}): Promise<CategoryWithPresets[]> {
+  const now = Date.now();
+  if (!force && catalogCache && now - catalogCache.at < CATALOG_TTL_MS) {
+    return catalogCache.promise;
+  }
+  const promise = fetchCategories();
+  catalogCache = { at: now, promise };
+  // If the fetch rejects, drop the cache so the next call retries.
+  promise.catch(() => { if (catalogCache?.promise === promise) catalogCache = null; });
+  return promise;
+}
+
+// Fetch a single category + its presets — used by the category detail page so
+// it doesn't pull the entire catalog just to show one category.
+export async function getCategory(id: string): Promise<CategoryWithPresets | null> {
+  const supabase = createClient();
+  const [catRes, presetsRes] = await Promise.all([
+    supabase.from("categories").select("*").eq("id", id).eq("is_active", true).single(),
+    supabase.from("presets_public").select("*").eq("category_id", id).eq("is_active", true).order("sort_order"),
+  ]);
+  if (catRes.error || !catRes.data) return null;
+  return { ...(catRes.data as Category), presets: (presetsRes.data ?? []) as Preset[] };
 }
 
 export async function getPreset(
