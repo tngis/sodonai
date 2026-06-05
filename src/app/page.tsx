@@ -9,6 +9,7 @@ import { getCategories, type CategoryWithPresets } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CategoryIcon } from "@/components/category-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { HeroVisual } from "@/components/home/hero-visual";
@@ -122,9 +123,15 @@ export default function HomePage() {
                 <RevealItem key={cat.id}>
                   <Link href={`/category/${cat.id}`}>
                     <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
-                      <Card className="glass glow-brand-hover group h-full cursor-pointer">
+                      <Card className="glass glow-brand-hover group h-full cursor-pointer overflow-hidden py-0">
+                        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-linear-to-br from-muted to-muted/50">
+                          <CategoryIcon
+                            category={cat}
+                            imgClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            emojiClassName="text-4xl transition-transform duration-300 group-hover:scale-110"
+                          />
+                        </div>
                         <CardContent className="flex flex-col gap-2 p-4">
-                          <span className="text-3xl transition-transform duration-300 group-hover:scale-110">{cat.icon}</span>
                           <div>
                             <p className="font-semibold leading-tight">{lang === "mn" ? cat.name_mn : cat.name_en}</p>
                             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
@@ -171,8 +178,8 @@ export default function HomePage() {
                     <Link key={preset.id} href={`/generate/${preset.id}`} className="min-w-[200px] max-w-[220px] shrink-0 snap-start">
                       <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
                         <Card className="glass glow-brand-hover group h-full cursor-pointer overflow-hidden py-0">
-                          <div className="flex h-36 items-center justify-center bg-linear-to-br from-muted to-muted/50 text-5xl transition-transform duration-500 group-hover:scale-105">
-                            {cat.icon}
+                          <div className="flex h-36 items-center justify-center overflow-hidden bg-linear-to-br from-muted to-muted/50 text-5xl transition-transform duration-500 group-hover:scale-105">
+                            <CategoryIcon category={cat} imgClassName="h-full w-full object-cover" />
                           </div>
                           <CardContent className="p-3">
                             <p className="text-xs text-muted-foreground">{lang === "mn" ? cat.name_mn : cat.name_en}</p>

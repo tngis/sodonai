@@ -14,13 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { TextField, NumberField, TextareaField, CheckboxField } from "@/components/admin/fields";
+import { TextField, NumberField, TextareaField, CheckboxField, ImageField } from "@/components/admin/fields";
 
 type CategoryRow = Database["public"]["Tables"]["categories"]["Row"];
 
 const EMPTY: CategoryInput = {
   id: "", name_mn: "", name_en: "", description_mn: "", description_en: "",
-  icon: "", sort_order: 0, is_active: true,
+  icon: "", image_url: null, sort_order: 0, is_active: true,
 };
 
 function rowToInput(c: CategoryRow): CategoryInput {
@@ -31,6 +31,7 @@ function rowToInput(c: CategoryRow): CategoryInput {
     description_mn: c.description_mn,
     description_en: c.description_en,
     icon: c.icon,
+    image_url: c.image_url,
     sort_order: c.sort_order,
     is_active: c.is_active,
   };
@@ -102,7 +103,12 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
         {initialCategories.map((c) => (
           <Card key={c.id}>
             <CardContent className="flex items-center gap-3 p-3">
-              <span className="text-2xl">{c.icon}</span>
+              {c.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.image_url} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+              ) : (
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center text-2xl">{c.icon}</span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">
                   {c.name_mn}
@@ -137,7 +143,10 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
               </DialogHeader>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <TextField label="ID (латин, өвөрмөц)" value={editing.id} onChange={(v) => patch({ id: v })} disabled={!isNew} placeholder="cat-family" mono />
-                <TextField label="Icon (эможи)" value={editing.icon} onChange={(v) => patch({ icon: v })} placeholder="👨‍👩‍👧‍👦" />
+                <TextField label="Icon (эможи, зураггүй үед)" value={editing.icon} onChange={(v) => patch({ icon: v })} placeholder="👨‍👩‍👧‍👦" />
+                <div className="sm:col-span-2">
+                  <ImageField label="Зураг (icon-ийг орлоно)" value={editing.image_url ?? ""} onChange={(v) => patch({ image_url: v || null })} />
+                </div>
                 <TextField label="Нэр (MN)" value={editing.name_mn} onChange={(v) => patch({ name_mn: v })} />
                 <TextField label="Нэр (EN)" value={editing.name_en} onChange={(v) => patch({ name_en: v })} />
                 <TextareaField label="Тайлбар (MN)" value={editing.description_mn} onChange={(v) => patch({ description_mn: v })} rows={2} />

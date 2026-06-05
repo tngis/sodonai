@@ -9,6 +9,7 @@ import { getCategories, type Category, type Preset } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CategoryIcon } from "@/components/category-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BeforeAfter } from "@/components/before-after";
 import { cn } from "@/lib/utils";
@@ -87,8 +88,8 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
         </Link>
 
         <div className="mb-8 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-3xl">
-            {category.icon}
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary text-3xl">
+            <CategoryIcon category={category} />
           </div>
           <div>
             <h1 className="text-2xl font-black tracking-tight md:text-3xl">

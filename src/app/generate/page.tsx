@@ -6,8 +6,9 @@ import { ArrowRight } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { getCategories, type CategoryWithPresets } from "@/lib/catalog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { CategoryIcon } from "@/components/category-icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export default function GenerateIndexPage() {
   const { t, lang } = useLang();
@@ -35,25 +36,27 @@ export default function GenerateIndexPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {categories.map((cat) => (
               <Link key={cat.id} href={`/category/${cat.id}`}>
-                <Card className="group cursor-pointer border-border transition-all hover:border-primary hover:shadow-md">
-                  <CardContent className="flex items-center gap-4 p-5">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-3xl">
-                      {cat.icon}
+                <Card className="group h-full cursor-pointer overflow-hidden border-border py-0 transition-all hover:border-primary hover:shadow-md">
+                  <div className="flex aspect-[16/9] items-center justify-center overflow-hidden bg-linear-to-br from-muted to-muted/50 text-4xl">
+                    <CategoryIcon
+                      category={cat}
+                      imgClassName="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                  <CardContent className="flex flex-col gap-2 p-5">
+                    <p className="font-bold">{lang === "mn" ? cat.name_mn : cat.name_en}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {lang === "mn" ? cat.description_mn : cat.description_en}
+                    </p>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-muted-foreground">
+                        {cat.presets.length} {lang === "mn" ? "пресет" : "presets"}
+                      </span>
+                      <Button variant="shadow" className="cursor-pointer flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-sm font-bold text-primary-foreground transition-transform group-hover:translate-x-0.5">
+                        {lang === "mn" ? "Сонгох" : "Select"}
+                        <ArrowRight size={14} />
+                      </Button>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold">{lang === "mn" ? cat.name_mn : cat.name_en}</p>
-                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                        {lang === "mn" ? cat.description_mn : cat.description_en}
-                      </p>
-                      <div className="mt-2 flex items-center gap-1.5">
-                        {cat.presets.map((p) => (
-                          <Badge key={p.id} variant="secondary" className="text-xs">
-                            ₮{p.price_mnt.toLocaleString()}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <ArrowRight size={18} className="shrink-0 text-muted-foreground group-hover:text-primary" />
                   </CardContent>
                 </Card>
               </Link>

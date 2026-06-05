@@ -11,6 +11,7 @@ import { createPaymentIntent, type PaymentIntentResult } from "@/app/actions/pay
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CategoryIcon } from "@/components/category-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -255,8 +256,8 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
         {/* Preset info */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-xl">
-            {category.icon}
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-primary text-xl">
+            <CategoryIcon category={category} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm text-muted-foreground">
