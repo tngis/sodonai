@@ -77,7 +77,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${manrope.variable} ${montserrat.variable} ${geistMono.variable} h-dvh antialiased`}
     >
-      <body className="flex h-full flex-col overflow-hidden">
+      {/* suppressHydrationWarning: some browser extensions (e.g. ColorZilla adds
+          cz-shortcut-listen) inject attributes on <body> before hydration. */}
+      <body className="flex h-full flex-col overflow-hidden" suppressHydrationWarning>
         <Providers>
           <Header />
           <main className="flex-1 overflow-y-auto">

@@ -114,15 +114,15 @@ export default function HomePage() {
             <h2 className="mb-6 font-display text-xl font-bold tracking-tight sm:text-2xl">{t("categories")}</h2>
           </Reveal>
           {loading ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+            <div className="-mx-4 grid grid-flow-col grid-rows-2 gap-3 overflow-x-auto scrollbar-hide px-4 md:-mx-6 md:px-6">
+              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-36 w-44 shrink-0 rounded-2xl sm:w-52" />)}
             </div>
           ) : (
-            <RevealStagger className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <RevealStagger className="-mx-4 grid snap-x auto-rows-fr grid-flow-col grid-rows-2 gap-3 overflow-x-auto scroll-pl-4 scrollbar-hide px-4 pb-2 md:-mx-6 md:scroll-pl-6 md:px-6">
               {categories.map((cat) => (
-                <RevealItem key={cat.id}>
-                  <Link href={`/category/${cat.id}`}>
-                    <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
+                <RevealItem key={cat.id} className="h-full w-44 shrink-0 snap-start sm:w-52">
+                  <Link href={`/category/${cat.id}`} className="block h-full">
+                    <motion.div className="h-full" whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
                       <Card className="glass glow-brand-hover group h-full cursor-pointer overflow-hidden py-0">
                         <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-linear-to-br from-muted to-muted/50">
                           <CategoryIcon
@@ -173,8 +173,10 @@ export default function HomePage() {
           >
             {loading
               ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-52 w-52 shrink-0 rounded-2xl" />)
-              : categories.flatMap((cat) =>
-                  cat.presets.map((preset) => (
+              : categories
+                  .flatMap((cat) => cat.presets.map((preset) => ({ cat, preset })))
+                  .slice(0, 10)
+                  .map(({ cat, preset }) => (
                     <Link key={preset.id} href={`/generate/${preset.id}`} className="min-w-[200px] max-w-[220px] shrink-0 snap-start">
                       <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
                         <Card className="glass glow-brand-hover group h-full cursor-pointer overflow-hidden py-0">
@@ -192,8 +194,7 @@ export default function HomePage() {
                         </Card>
                       </motion.div>
                     </Link>
-                  ))
-                )}
+                  ))}
           </div>
         </div>
       </section>

@@ -195,18 +195,6 @@ function OutputContent() {
     <div className="px-4 py-6 md:px-6 md:py-10">
       {celebrate && <Celebrate />}
       <div className="mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">{t("outputTitle")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {images.length} {t("generatedImages")}
-            </p>
-          </div>
-          <Button render={<Link href="/" />} variant="outline" size="sm" className="rounded-full">
-            {t("home")}
-          </Button>
-        </div>
 
         {/* Success banner */}
         <motion.div
@@ -228,75 +216,76 @@ function OutputContent() {
           <p className="text-sm font-medium">{t("outputTitle")}</p>
         </motion.div>
 
-        {/* Image grid */}
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {images.map((url, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="group relative aspect-square overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10"
+        {/* Image left · actions right on desktop; stacked full-width on mobile */}
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
+          {/* Images — natural aspect ratio (not cropped to a square) */}
+          <div className={cn("grid flex-1 gap-4 grid-cols-1", images.length > 1 && "sm:grid-cols-2")}>
+            {images.map((url, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                className="group relative overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10"
+              >
+                <Image
+                  src={url}
+                  alt={`Generated image ${i + 1}`}
+                  width={0}
+                  height={0}
+                  className="h-auto w-full object-contain"
+                  sizes="(max-width: 1024px) 100vw, 60vw"
+                  unoptimized
+                />
+                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
+                  <button
+                    onClick={() => setPreviewIdx(i)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
+                    aria-label="Томруулах"
+                  >
+                    <ZoomIn size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDownload(url, i)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
+                    aria-label={t("download")}
+                  >
+                    <Download size={16} />
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Actions — full-width stack; fixed right column on desktop */}
+          <div className="flex w-full flex-col gap-3 lg:w-80 lg:shrink-0">
+            <Button onClick={handleDownloadAll} className="w-full justify-center rounded-full font-bold">
+              <Download size={16} className="mr-2" /> {t("download")}
+            </Button>
+            <Button
+              render={<Link href={`/print?gen=${generationId}`} />}
+              className="w-full justify-center rounded-full bg-primary font-bold text-black"
+              variant="shadow"
             >
-              <Image
-                src={url}
-                alt={`Generated image ${i + 1}`}
-                fill
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                unoptimized
-              />
-              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
-                <button
-                  onClick={() => setPreviewIdx(i)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
-                  aria-label="Томруулах"
-                >
-                  <ZoomIn size={16} />
-                </button>
-                <button
-                  onClick={() => handleDownload(url, i)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
-                  aria-label={t("download")}
-                >
-                  <Download size={16} />
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Actions — Share · Download · Боднор авах (auto-saved to gallery already) */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Button onClick={handleDownloadAll} className="rounded-full font-bold">
-            <Download size={16} className="mr-2" /> {t("download")}
-          </Button>
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => images[0] && handleShare(images[0])}
-          >
-            <Share2 size={16} className="mr-2" /> {t("share")}
-          </Button>
-          <Button
-            render={<Link href={`/print?gen=${generationId}`} />}
-            className="rounded-full font-bold bg-primary text-black"
-            variant="shadow"
-          >
-            <Frame size={16} className="mr-2" /> {t("orderPrint")}
-          </Button>
-          <Button variant="ghost" className="rounded-full text-muted-foreground" onClick={handleRegenerate}>
-            <RefreshCw size={16} className="mr-2" /> {t("regenerate")}
-          </Button>
-        </div>
-
-        <div className="mt-4 flex justify-center">
-          <button
-            onClick={handleReport}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive"
-          >
-            <Flag size={12} /> {t("report")}
-          </button>
+              <Frame size={16} className="mr-2" /> {t("orderPrint")}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-center rounded-full"
+              onClick={() => images[0] && handleShare(images[0])}
+            >
+              <Share2 size={16} className="mr-2" /> {t("share")}
+            </Button>
+            <Button variant="ghost" className="w-full justify-center rounded-full text-muted-foreground" onClick={handleRegenerate}>
+              <RefreshCw size={16} className="mr-2" /> {t("regenerate")}
+            </Button>
+            <button
+              onClick={handleReport}
+              className="mt-1 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-destructive"
+            >
+              <Flag size={12} /> {t("report")}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -318,7 +307,7 @@ function OutputContent() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={previewIdx}
-                  className="relative aspect-square touch-pan-y overflow-hidden rounded-2xl"
+                  className="relative h-[72vh] touch-pan-y overflow-hidden rounded-2xl"
                   drag={images.length > 1 ? "x" : false}
                   dragConstraints={{ left: 0, right: 0 }}
                   dragElastic={0.2}

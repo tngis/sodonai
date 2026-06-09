@@ -1,19 +1,42 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { motion, AnimatePresence } from "motion/react";
-import { Download, Share2, Frame, AlertTriangle } from "lucide-react";
+import { motion } from "motion/react";
+import { Download, Share2, Frame, AlertTriangle, Loader2 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
+import { useUserGenerations } from "@/lib/use-generations";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
+// Placeholder card shown while a generation is still running. Ticks an elapsed
+// counter; it's replaced by the real image once the generation finishes.
+function GeneratingCard({ createdAt }: { createdAt: string }) {
+  const { t, lang } = useLang();
+  const elapsedOf = () => Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000));
+  const [elapsed, setElapsed] = useState(elapsedOf);
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(elapsedOf()), 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createdAt]);
+  return (
+    <div className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl bg-muted ring-1 ring-foreground/10">
+      <Loader2 size={22} className="animate-spin text-primary" />
+      <p className="px-2 text-center text-xs font-medium text-muted-foreground">
+        {t("generating")} · {elapsed}{lang === "mn" ? "с" : "s"}
+      </p>
+    </div>
+  );
+}
+
 interface GalleryItem {
   id: string;
+  generation_id: string | null;
   storage_path: string;
   signedUrl: string;
   created_at: string;
@@ -24,7 +47,11 @@ export default function GalleryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
-  const [preview, setPreview] = useState<string | null>(null);
+
+  // In-progress generations (polled). When one finishes, its asset is auto-saved
+  // server-side, so we reload the gallery to swap the placeholder for the image.
+  const { active } = useUserGenerations();
+  const prevActive = useRef(0);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -33,7 +60,7 @@ export default function GalleryPage() {
 
     const { data: assets } = await supabase
       .from("assets")
-      .select("id, storage_path, created_at")
+      .select("id, generation_id, storage_path, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -48,12 +75,11 @@ export default function GalleryPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // When the number of running generations drops, a new result is ready — refresh.
   useEffect(() => {
-    if (!preview) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPreview(null); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [preview]);
+    if (active.length < prevActive.current) load();
+    prevActive.current = active.length;
+  }, [active.length, load]);
 
   const handleDownload = async (url: string, index: number) => {
     try {
@@ -87,8 +113,11 @@ export default function GalleryPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-xl" />)}
           </div>
-        ) : gallery.length > 0 ? (
+        ) : active.length > 0 || gallery.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {active.map((g) => (
+              <GeneratingCard key={g.id} createdAt={g.created_at} />
+            ))}
             {gallery.map((img, i) => (
               <motion.div
                 key={img.id}
@@ -97,7 +126,7 @@ export default function GalleryPage() {
                 transition={{ duration: 0.35, delay: Math.min(i * 0.04, 0.4), ease: [0.22, 1, 0.36, 1] }}
                 whileHover={{ y: -3 }}
                 className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10"
-                onClick={() => setPreview(img.signedUrl)}
+                onClick={() => img.generation_id && router.push(`/output?id=${img.generation_id}`)}
               >
                 {img.signedUrl ? (
                   <Image
@@ -149,43 +178,6 @@ export default function GalleryPage() {
           </div>
         )}
       </div>
-
-      {/* Lightbox */}
-      <AnimatePresence>
-        {preview && (
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Зургийн томруулсан харагдац"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
-            onClick={() => setPreview(null)}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <motion.div
-              className="relative w-full max-w-2xl"
-              onClick={(e) => e.stopPropagation()}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            >
-              <div className="relative aspect-square overflow-hidden rounded-2xl">
-                <Image src={preview} alt="Preview" fill className="object-contain" sizes="100vw" unoptimized />
-              </div>
-              <button
-                onClick={() => setPreview(null)}
-                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
-                aria-label="Хаах"
-              >
-                ✕
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

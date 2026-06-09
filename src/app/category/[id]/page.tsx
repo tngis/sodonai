@@ -153,7 +153,7 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
                       className="h-52"
                     />
                   ) : (
-                    <div className="h-52 overflow-hidden bg-muted">
+                    <div className="h-96 overflow-hidden bg-muted">
                       <PresetCardImage
                         src={preset.example_output}
                         alt={lang === "mn" ? preset.name_mn : preset.name_en}

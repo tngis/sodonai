@@ -17,6 +17,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useUserGenerations } from "@/lib/use-generations";
+import { getLastSeen, markSeenNow } from "@/lib/notif-seen";
+import { NotificationsPanel } from "@/components/notifications/notifications-panel";
 
 export function Header() {
   const { t, lang, setLang } = useLang();
@@ -33,6 +36,27 @@ export function Header() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setIsAuthed(!!session?.user));
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  // Notifications derived from generation state (no separate table).
+  const { finished, loading: notifLoading } = useUserGenerations();
+  const [lastSeen, setLastSeen] = useState(0);
+  useEffect(() => {
+    // Baseline existing history as seen the first time, so old generations
+    // don't all show up as unread.
+    if (getLastSeen() === 0) markSeenNow();
+    const sync = () => setLastSeen(getLastSeen());
+    sync();
+    window.addEventListener("notif-seen", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("notif-seen", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  const unread = finished.filter((g) => new Date(g.updated_at).getTime() > lastSeen).length;
+  // Snapshot of lastSeen taken when the dropdown opens, so items stay highlighted
+  // while viewing even though opening marks them seen (clearing the badge).
+  const [panelSeen, setPanelSeen] = useState(0);
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -98,12 +122,35 @@ export function Header() {
             </Button>
           )}
 
-          {/* Notifications — logged in only */}
+          {/* Notifications — logged in only. Mobile → page; desktop → dropdown. */}
           {isAuthed && (
-          <button aria-label="Мэдэгдэл" className={cn(iconBtn, "relative")}>
-            <Bell size={19} />
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />
-          </button>
+            <>
+              <Link href="/notifications" aria-label={t("notifications")} className={cn(iconBtn, "relative md:hidden")}>
+                <Bell size={19} />
+                {unread > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-card">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
+              </Link>
+
+              <DropdownMenu onOpenChange={(open) => { if (open) { setPanelSeen(getLastSeen()); markSeenNow(); } }}>
+                <DropdownMenuTrigger aria-label={t("notifications")} className={cn(iconBtn, "relative hidden md:flex")}>
+                  <Bell size={19} />
+                  {unread > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-card">
+                      {unread > 9 ? "9+" : unread}
+                    </span>
+                  )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={10} className="w-80 rounded-2xl p-2">
+                  <div className="px-2 pb-1.5 pt-1 text-sm font-semibold">{t("notifications")}</div>
+                  <div className="max-h-[26rem] overflow-y-auto">
+                    <NotificationsPanel items={finished} loading={notifLoading} lastSeen={panelSeen} />
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
 
           {/* Avatar menu — logged in, desktop only (mobile uses bottom nav) */}

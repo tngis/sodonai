@@ -21,7 +21,7 @@ import type { QPayDeepLink } from "@/lib/qpay";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
-const MIN_DIMENSION = 256;
+const MIN_DIMENSION = 200;
 
 function checkDimensions(file: File): Promise<string | null> {
   return new Promise((resolve) => {
@@ -256,9 +256,6 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
         {/* Preset info */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-primary text-xl">
-            <CategoryIcon category={category} />
-          </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm text-muted-foreground">
               {lang === "mn" ? category.name_mn : category.name_en}

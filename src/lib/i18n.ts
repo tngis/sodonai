@@ -52,7 +52,14 @@ export const translations = {
     eta: "Хугацаа",
     ratio: "Харьцаа",
     selectPreset: "Пресет сонгох",
+    seeAll: "Бүгдийг харах",
     min: "мин",
+
+    // Notifications
+    generating: "Үүсгэж байна",
+    imageReady: "Таны зураг бэлэн боллоо",
+    generationFailedNotif: "Боловсруулалт амжилтгүй боллоо",
+    noNotifications: "Мэдэгдэл байхгүй байна",
 
     // Generate
     uploadStep: "Зураг оруулах",
@@ -237,7 +244,14 @@ export const translations = {
     eta: "ETA",
     ratio: "Ratio",
     selectPreset: "Select preset",
+    seeAll: "See all",
     min: "min",
+
+    // Notifications
+    generating: "Generating",
+    imageReady: "Your image is ready",
+    generationFailedNotif: "Generation failed",
+    noNotifications: "No notifications",
 
     uploadStep: "Upload",
     optionsStep: "Options",
