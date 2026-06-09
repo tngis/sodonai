@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, saveImageToDevice } from "@/lib/utils";
 
 const OUTPUTS_BUCKET = "outputs";
 
@@ -94,13 +94,7 @@ function OutputContent() {
 
   const handleDownload = async (url: string, index: number) => {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `aistudio_${index + 1}.jpg`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      await saveImageToDevice(url, `aistudio_${index + 1}`);
     } catch {
       toast.error("Татахад алдаа гарлаа.");
     }

@@ -9,6 +9,7 @@ import { Download, Share2, Frame, AlertTriangle, Loader2 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { useUserGenerations } from "@/lib/use-generations";
+import { saveImageToDevice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -83,13 +84,7 @@ export default function GalleryPage() {
 
   const handleDownload = async (url: string, index: number) => {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `aistudio_${index + 1}.jpg`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      await saveImageToDevice(url, `aistudio_${index + 1}`);
     } catch {
       toast.error("Татахад алдаа гарлаа.");
     }
