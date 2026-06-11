@@ -13,6 +13,7 @@ import { CategoryIcon } from "@/components/category-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
 import { HeroVisual } from "@/components/home/hero-visual";
+import { HeroSpotlight } from "@/components/home/hero-spotlight";
 import { ResultsMarquee } from "@/components/home/results-marquee";
 import NextImage from "next/image";
 
@@ -43,6 +44,7 @@ export default function HomePage() {
     <div className="flex flex-col">
       {/* ── Hero ── */}
       <section className=" relative overflow-hidden px-4 pb-16 pt-12 md:px-6">
+        <HeroSpotlight />
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <motion.h2
             className="mb-3 font-display text-xl font-bold leading-tight tracking-tight sm:text-2xl md:text-2xl lg:text-3xl"
@@ -58,7 +60,9 @@ export default function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.08 }}
           >
-            <span className="block text-primary text-glow">{t("heroSubtitle")}</span>
+            <span className="block text-primary text-glow">
+              {t("heroSubtitle")}
+            </span>
           </motion.h1>
 
           <motion.p
@@ -79,10 +83,10 @@ export default function HomePage() {
               render={<Link href="/generate" />}
               variant="shadow"
               size="lg"
-              className="bg-primary border-2 border-[#8aa800] text-purple-500 rounded-full text-lg pl-8 pr-4 font-black gap-1"
+              className="bg-primary border-2 border-[#737373] text-primary-foreground rounded-full text-lg px-8 font-black gap-1"
             >
               {t("getStarted")}
-              <NextImage src="/spark-icon.png" alt="" width={28} height={28} className="h-8 w-8 object-contain" />
+              {/*<NextImage src="/spark-icon.png" alt="" width={28} height={28} className="h-8 w-8 object-contain" />*/}
             </Button>
           </motion.div>
 
@@ -96,7 +100,9 @@ export default function HomePage() {
           >
             {stats.map((s, i) => (
               <div key={i} className="flex items-center gap-4">
-                {i > 0 && <div className="hidden h-4 w-px bg-border sm:block" />}
+                {i > 0 && (
+                  <div className="hidden h-4 w-px bg-border sm:block" />
+                )}
                 <div className="flex items-center gap-1.5">
                   <s.icon size={14} className="text-primary" />
                   <span>{s.label}</span>
@@ -111,18 +117,37 @@ export default function HomePage() {
       <section className="px-4 py-12 md:px-6">
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <h2 className="mb-6 font-display text-xl font-bold tracking-tight sm:text-2xl">{t("categories")}</h2>
+            <h2 className="mb-6 font-display text-xl font-bold tracking-tight sm:text-2xl">
+              {t("categories")}
+            </h2>
           </Reveal>
           {loading ? (
             <div className="-mx-4 grid grid-flow-col grid-rows-2 gap-3 overflow-x-auto scrollbar-hide px-4 md:-mx-6 md:px-6">
-              {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-36 w-44 shrink-0 rounded-2xl sm:w-52" />)}
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="h-36 w-44 shrink-0 rounded-2xl sm:w-52"
+                />
+              ))}
             </div>
           ) : (
-            <RevealStagger className="-mx-4 grid snap-x auto-rows-fr grid-flow-col grid-rows-2 gap-3 overflow-x-auto scroll-pl-4 scrollbar-hide px-4 pb-2 md:-mx-6 md:scroll-pl-6 md:px-6">
+            <RevealStagger className="-mx-4 -my-6 grid snap-x auto-rows-fr grid-flow-col grid-rows-2 gap-3 overflow-x-auto scroll-pl-4 scrollbar-hide px-4 py-6 md:-mx-6 md:scroll-pl-6 md:px-6">
               {categories.map((cat) => (
-                <RevealItem key={cat.id} className="h-full w-44 shrink-0 snap-start sm:w-52">
+                <RevealItem
+                  key={cat.id}
+                  className="h-full w-44 shrink-0 snap-start sm:w-52"
+                >
                   <Link href={`/category/${cat.id}`} className="block h-full">
-                    <motion.div className="h-full" whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
+                    <motion.div
+                      className="h-full"
+                      whileHover={{ y: -4 }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 25,
+                      }}
+                    >
                       <Card className="glass glow-brand-hover group h-full cursor-pointer overflow-hidden py-0">
                         <div className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-linear-to-br from-muted to-muted/50">
                           <CategoryIcon
@@ -133,14 +158,21 @@ export default function HomePage() {
                         </div>
                         <CardContent className="flex flex-col gap-2 p-4">
                           <div>
-                            <p className="font-semibold leading-tight">{lang === "mn" ? cat.name_mn : cat.name_en}</p>
+                            <p className="font-semibold leading-tight">
+                              {lang === "mn" ? cat.name_mn : cat.name_en}
+                            </p>
                             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                              {lang === "mn" ? cat.description_mn : cat.description_en}
+                              {lang === "mn"
+                                ? cat.description_mn
+                                : cat.description_en}
                             </p>
                           </div>
                           <div className="mt-auto flex items-center gap-1 text-xs font-semibold text-primary">
                             <span>{cat.presets.length} пресет</span>
-                            <ArrowRight size={12} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+                            <ArrowRight
+                              size={12}
+                              className="transition-transform duration-300 group-hover:translate-x-0.5"
+                            />
                           </div>
                         </CardContent>
                       </Card>
@@ -166,29 +198,59 @@ export default function HomePage() {
       <section className="relative px-4 py-12 md:px-6">
         <div className="mx-auto max-w-5xl">
           <Reveal>
-            <h2 className="mb-6 font-display text-xl font-bold tracking-tight sm:text-2xl">{t("featuredPresets")}</h2>
+            <h2 className="mb-6 font-display text-xl font-bold tracking-tight sm:text-2xl">
+              {t("featuredPresets")}
+            </h2>
           </Reveal>
-          <div
-            className="flex snap-x snap-mandatory gap-4 overflow-x-auto scrollbar-hide py-4"
-          >
+          <div className="-my-6 flex snap-x snap-mandatory gap-4 overflow-x-auto scrollbar-hide py-6">
             {loading
-              ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-52 w-52 shrink-0 rounded-2xl" />)
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className="h-52 w-52 shrink-0 rounded-2xl"
+                  />
+                ))
               : categories
-                  .flatMap((cat) => cat.presets.map((preset) => ({ cat, preset })))
+                  .flatMap((cat) =>
+                    cat.presets.map((preset) => ({ cat, preset })),
+                  )
                   .slice(0, 10)
                   .map(({ cat, preset }) => (
-                    <Link key={preset.id} href={`/generate/${preset.id}`} className="min-w-[200px] max-w-[220px] shrink-0 snap-start">
-                      <motion.div whileHover={{ y: -4 }} whileTap={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 400, damping: 25 }}>
+                    <Link
+                      key={preset.id}
+                      href={`/preset/${preset.id}`}
+                      className="min-w-[200px] max-w-[220px] shrink-0 snap-start"
+                    >
+                      <motion.div
+                        whileHover={{ y: -4 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 25,
+                        }}
+                      >
                         <Card className="glass glow-brand-hover group h-full cursor-pointer overflow-hidden py-0">
                           <div className="flex h-36 items-center justify-center overflow-hidden bg-linear-to-br from-muted to-muted/50 text-5xl transition-transform duration-500 group-hover:scale-105">
-                            <CategoryIcon category={cat} imgClassName="h-full w-full object-cover" />
+                            <CategoryIcon
+                              category={cat}
+                              imgClassName="h-full w-full object-cover"
+                            />
                           </div>
                           <CardContent className="p-3">
-                            <p className="text-xs text-muted-foreground">{lang === "mn" ? cat.name_mn : cat.name_en}</p>
-                            <p className="font-semibold">{lang === "mn" ? preset.name_mn : preset.name_en}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {lang === "mn" ? cat.name_mn : cat.name_en}
+                            </p>
+                            <p className="font-semibold">
+                              {lang === "mn" ? preset.name_mn : preset.name_en}
+                            </p>
                             <div className="mt-2 flex items-center justify-between">
-                              <span className="text-sm font-bold text-primary">₮{preset.price_mnt.toLocaleString()}</span>
-                              <span className="text-xs text-muted-foreground">{preset.eta_min} {t("min")}</span>
+                              <span className="text-sm font-bold text-primary">
+                                ₮{preset.price_mnt.toLocaleString()}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {preset.eta_min} {t("min")}
+                              </span>
                             </div>
                           </CardContent>
                         </Card>
@@ -201,14 +263,16 @@ export default function HomePage() {
 
       {/* ── How it works ── */}
       <section className="px-4 py-12 md:px-6">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-5xl">
           <Reveal>
-            <h2 className="mb-8 text-center font-display text-xl font-bold tracking-tight sm:text-2xl">{t("howItWorks")}</h2>
+            <h2 className="mb-8 text-center font-display text-xl font-bold tracking-tight sm:text-2xl">
+              {t("howItWorks")}
+            </h2>
           </Reveal>
           <RevealStagger className="grid grid-cols-1 gap-6 sm:grid-cols-3">
             {steps.map((step, i) => (
               <RevealItem key={i}>
-                <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
+                <div className="flex flex-col items-center text-center">
                   <div className="glow-brand-sm mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
                     <span className="text-sm font-black">{step.num}</span>
                   </div>
@@ -222,20 +286,31 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA banner ── */}
-      <section className="mx-4 mb-4 md:mx-6">
-        <Reveal>
-          <div className="glow-brand grain relative overflow-hidden rounded-2xl">
-            <div className="relative z-10 flex flex-col items-center gap-4 bg-primary px-6 py-10 text-center text-primary-foreground sm:flex-row sm:justify-between sm:text-left">
-              <div>
-                <p className="font-display text-xl font-black sm:text-2xl">Өнөөдөр эхэл</p>
-                <p className="mt-1 text-sm opacity-80">Промпт бичихгүйгээр гэр бүлийн зургаа бүтээ.</p>
+      <section className="px-4 mb-4 md:px-6">
+        <div className="mx-auto max-w-5xl">
+          <Reveal>
+            <div className="glass glow-brand grain relative overflow-hidden rounded-2xl">
+              <div className="relative z-10 flex flex-col items-center gap-4 px-6 py-10 text-center text-primary sm:flex-row sm:justify-between sm:text-left sm:px-10">
+                <div>
+                  <p className="font-display text-xl font-black sm:text-2xl">
+                    Өнөөдөр эхэл
+                  </p>
+                  <p className="mt-1 text-sm opacity-80">
+                    Промпт бичихгүйгээр гэр бүлийн зургаа бүтээ.
+                  </p>
+                </div>
+                <Button
+                  render={<Link href="/generate" />}
+                  variant="secondary"
+                  size="lg"
+                  className="w-full shrink-0 rounded-full font-bold sm:w-auto"
+                >
+                  {t("getStarted")}
+                </Button>
               </div>
-              <Button render={<Link href="/generate" />} variant="secondary" size="lg" className="w-full shrink-0 rounded-full font-bold sm:w-auto">
-                {t("getStarted")}
-              </Button>
             </div>
-          </div>
-        </Reveal>
+          </Reveal>
+        </div>
       </section>
     </div>
   );

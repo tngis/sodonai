@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Reorder, useDragControls } from "motion/react";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, Eye, EyeOff } from "lucide-react";
+import { Pencil, Trash2, Plus, Eye, EyeOff, GripVertical } from "lucide-react";
 import {
-  createPreset, updatePreset, deletePreset, addOptionSuggestion, deleteOptionSuggestion, type PresetInput,
+  createPreset, updatePreset, deletePreset, reorderPresets, addOptionSuggestion, deleteOptionSuggestion, type PresetInput,
 } from "@/app/actions/admin";
 import type { Database, Json, SuggestionKind } from "@/lib/supabase/types";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,8 @@ interface PresetForm {
   price_mnt: number;
   eta_min: string;
   warnings: string[];
+  benefits: string[];
+  imageRequirements: string[];
   internal_prompt: string;
   ai_model: string;
   example_output: string;
@@ -78,6 +81,18 @@ interface PresetForm {
 }
 
 function rowToForm(p: PresetRow): PresetForm {
+  // benefits/imageRequirements live inside the options jsonb; any *other* option
+  // keys stay in the raw JSON editor so nothing is lost on round-trip.
+  const opts = (p.options ?? null) as Record<string, unknown> | null;
+  const benefits = Array.isArray(opts?.benefits) ? (opts!.benefits as string[]) : [];
+  const imageRequirements = Array.isArray(opts?.imageRequirements) ? (opts!.imageRequirements as string[]) : [];
+  let optionsText = "";
+  if (opts) {
+    const rest: Record<string, unknown> = { ...opts };
+    delete rest.benefits;
+    delete rest.imageRequirements;
+    optionsText = Object.keys(rest).length ? JSON.stringify(rest, null, 2) : "";
+  }
   return {
     id: p.id,
     category_id: p.category_id,
@@ -90,13 +105,15 @@ function rowToForm(p: PresetRow): PresetForm {
     price_mnt: p.price_mnt,
     eta_min: p.eta_min,
     warnings: p.warnings_mn ?? [],
+    benefits,
+    imageRequirements,
     internal_prompt: p.internal_prompt,
     ai_model: p.ai_model ?? "",
     example_output: p.example_output,
     example_before: p.example_before ?? "",
     example_type: p.example_type ?? "single",
     example_inputs: p.example_inputs ?? [],
-    optionsText: p.options ? JSON.stringify(p.options, null, 2) : "",
+    optionsText,
     required_min: p.required_min ?? 1,
     required_max: p.required_max ?? 9,
     sort_order: p.sort_order,
@@ -109,7 +126,8 @@ function emptyForm(categories: CategoryLite[]): PresetForm {
     id: "", category_id: categories[0]?.id ?? "", name_mn: "", name_en: "",
     description_mn: "", description_en: "",
     output_ratio: "Original", steps: 1, price_mnt: 1900, eta_min: "1–2",
-    warnings: [], internal_prompt: "", ai_model: AI_MODEL_OPTIONS[0], example_output: "",
+    warnings: [], benefits: [], imageRequirements: [],
+    internal_prompt: "", ai_model: AI_MODEL_OPTIONS[0], example_output: "",
     example_before: "", example_type: "single",
     example_inputs: [], optionsText: "", required_min: 1, required_max: 9, sort_order: 0, is_active: true,
   };
@@ -117,15 +135,20 @@ function emptyForm(categories: CategoryLite[]): PresetForm {
 
 // Convert the form into the server-action payload. Throws on invalid JSON.
 function buildInput(f: PresetForm): PresetInput {
-  let options: Json | null = null;
+  // Merge the managed arrays (benefits/imageRequirements) into any advanced
+  // options the admin typed as raw JSON.
+  let base: Record<string, unknown> = {};
   const ot = f.optionsText.trim();
   if (ot) {
     try {
-      options = JSON.parse(ot) as Json;
+      base = JSON.parse(ot) as Record<string, unknown>;
     } catch {
       throw new Error("Options талбар буруу JSON байна.");
     }
   }
+  if (f.benefits.length) base.benefits = f.benefits; else delete base.benefits;
+  if (f.imageRequirements.length) base.imageRequirements = f.imageRequirements; else delete base.imageRequirements;
+  const options: Json | null = Object.keys(base).length ? (base as Json) : null;
   return {
     id: f.id.trim(),
     category_id: f.category_id,
@@ -164,11 +187,56 @@ export function PresetManager({
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Category filter — "all" shows every preset.
+  const [filter, setFilter] = useState<string>("all");
+
+  // Local copy of the list so drag reordering feels instant. Re-synced whenever
+  // the server sends fresh props (after any create/edit/delete/toggle refresh).
+  const [presets, setPresets] = useState<PresetRow[]>(initialPresets);
+  const [syncedProps, setSyncedProps] = useState(initialPresets);
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Re-sync local order when the server sends fresh props (after any refresh).
+  // Adjusting state during render is React's recommended alternative to an effect.
+  if (syncedProps !== initialPresets) {
+    setSyncedProps(initialPresets);
+    setPresets(initialPresets);
+  }
+
   const catName = (id: string) => categories.find((c) => c.id === id)?.name_mn ?? id;
   // Maps category id → label so the Select can render the chosen category's name.
   const categoryItems = Object.fromEntries(categories.map((c) => [c.id, c.name_mn]));
   // Quick-select pools: saved options first, then any values used by existing presets.
-  const warningSuggestions = [...new Set([...savedWarnings, ...initialPresets.flatMap((p) => p.warnings_mn ?? [])])];
+  const warningSuggestions = [...new Set([...savedWarnings, ...presets.flatMap((p) => p.warnings_mn ?? [])])];
+
+  const visible = filter === "all" ? presets : presets.filter((p) => p.category_id === filter);
+
+  // Persist the full current order to the database.
+  const persistOrder = async (list: PresetRow[]) => {
+    const updates = list.map((p, i) => ({ id: p.id, sort_order: i }));
+    try {
+      await reorderPresets(updates);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Эрэмбэ хадгалахад алдаа.");
+      router.refresh(); // revert to server truth
+    }
+  };
+
+  const sortable = filter !== "all";
+
+  // Reorder receives the new order of the visible (single-category) list and
+  // splices those items back into the same slots of the full list so other
+  // categories' presets keep their positions. Sorting is only valid within a
+  // single category, so it's a no-op (UI also disabled) while "all" is active.
+  const handleReorder = (newVisible: PresetRow[]) => {
+    if (!sortable) return;
+    const moving = new Set(newVisible.map((p) => p.id));
+    let k = 0;
+    const next = presets.map((p) => (moving.has(p.id) ? newVisible[k++] : p));
+    setPresets(next);
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(() => { void persistOrder(next); }, 500);
+  };
 
   const persist = (kind: SuggestionKind, v: string) =>
     addOptionSuggestion(kind, v).catch((e) => toast.error(e instanceof Error ? e.message : "Хадгалахад алдаа."));
@@ -177,8 +245,10 @@ export function PresetManager({
 
   const startNew = () => {
     const form = emptyForm(categories);
+    // Default the category to the active filter when one is selected.
+    const cat = filter !== "all" ? filter : form.category_id;
     // New presets get an auto-generated id derived from the chosen category.
-    setEditing({ ...form, id: form.category_id ? nextPresetId(form.category_id, initialPresets) : "" });
+    setEditing({ ...form, category_id: cat, id: cat ? nextPresetId(cat, presets) : "" });
     setIsNew(true);
   };
   const startEdit = (p: PresetRow) => { setEditing(rowToForm(p)); setIsNew(false); };
@@ -229,7 +299,7 @@ export function PresetManager({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Пресет ({initialPresets.length})</h2>
+        <h2 className="text-lg font-bold">Пресет ({presets.length})</h2>
         <Button onClick={startNew} size="sm" className="rounded-full font-bold" disabled={categories.length === 0}>
           <Plus size={14} className="mr-1" /> Шинэ пресет
         </Button>
@@ -238,45 +308,57 @@ export function PresetManager({
         <p className="text-sm text-muted-foreground">Эхлээд ангилал нэмнэ үү.</p>
       )}
 
-      {/* List */}
-      <div className="flex flex-col gap-2">
-        {initialPresets.map((p) => (
-          <Card key={p.id}>
-            <CardContent className="flex items-center gap-1 p-3">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-foreground/10">
-                {p.example_output ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.example_output} alt="" className="h-full w-full object-cover" />
-                ) : null}
-              </div>
-              <div className="min-w-0 flex-1 ml-2">
-                <p className="truncate font-semibold mb-2">
-                  {p.name_mn}
-                  {!p.is_active && <Badge variant="secondary" className="ml-2 text-xs">Идэвхгүй</Badge>}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {catName(p.category_id)}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  ₮{p.price_mnt.toLocaleString()} · {p.output_ratio}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => toggleActive(p)} aria-label="Идэвх солих">
-                {p.is_active ? <Eye size={15} /> : <EyeOff size={15} className="text-muted-foreground" />}
+      {/* Category filter */}
+      {categories.length > 0 && (
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
+          <Button
+            size="sm"
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
+            className="shrink-0 rounded-full"
+          >
+            Бүгд ({presets.length})
+          </Button>
+          {categories.map((c) => {
+            const n = presets.filter((p) => p.category_id === c.id).length;
+            return (
+              <Button
+                key={c.id}
+                size="sm"
+                variant={filter === c.id ? "default" : "outline"}
+                onClick={() => setFilter(c.id)}
+                className="shrink-0 rounded-full"
+              >
+                {c.name_mn} ({n})
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => startEdit(p)} aria-label="Засах">
-                <Pencil size={15} />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => remove(p.id)} aria-label="Устгах">
-                <Trash2 size={15} className="text-destructive" />
-              </Button>
-            </CardContent>
-          </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        {sortable
+          ? <>Эрэмбийг өөрчлөхдөө <GripVertical size={12} className="inline align-text-bottom" />-ээс чирнэ үү.</>
+          : "Эрэмбэ нь ангилал тус бүрд хүчинтэй тул чирч эрэмбэлэхийн тулд тодорхой ангилал сонгоно уу."}
+      </p>
+
+      {/* List (drag to reorder — only within a single category) */}
+      <Reorder.Group as="div" axis="y" values={visible} onReorder={handleReorder} className="flex flex-col gap-2">
+        {visible.map((p) => (
+          <PresetRowItem
+            key={p.id}
+            p={p}
+            categoryName={catName(p.category_id)}
+            sortable={sortable}
+            onToggle={() => toggleActive(p)}
+            onEdit={() => startEdit(p)}
+            onRemove={() => remove(p.id)}
+          />
         ))}
-        {initialPresets.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">Пресет алга байна.</p>
-        )}
-      </div>
+      </Reorder.Group>
+      {visible.length === 0 && (
+        <p className="py-8 text-center text-sm text-muted-foreground">Пресет алга байна.</p>
+      )}
 
       {/* Editor dialog */}
       <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) setEditing(null); }}>
@@ -297,7 +379,7 @@ export function PresetManager({
                     onValueChange={(v) => {
                       if (typeof v !== "string") return;
                       // Regenerate the auto id when the category changes (new presets only).
-                      patch(isNew ? { category_id: v, id: nextPresetId(v, initialPresets) } : { category_id: v });
+                      patch(isNew ? { category_id: v, id: nextPresetId(v, presets) } : { category_id: v });
                     }}
                   >
                     <SelectTrigger className="w-full">
@@ -347,6 +429,14 @@ export function PresetManager({
 
               <TextareaField label="Тайлбар (MN)" value={editing.description_mn} onChange={(v) => patch({ description_mn: v })} rows={2} />
 
+              <ChipListField
+                label="Юу гарах вэ? (давуу талууд)"
+                hint="Энэ пресетээр гарах үр дүнгийн онцлогуудыг бичнэ. (detail хуудсанд харагдана)"
+                value={editing.benefits}
+                onChange={(v) => patch({ benefits: v })}
+                placeholder="Ж: 4:5 харьцаатай зураг"
+              />
+
               <TextareaField
                 label="Дотоод prompt (хэрэглэгчид харагдахгүй)"
                 value={editing.internal_prompt}
@@ -370,6 +460,13 @@ export function PresetManager({
                 max={editing.required_max}
                 onMinChange={(v) => patch({ required_min: v })}
                 onMaxChange={(v) => patch({ required_max: v })}
+              />
+              <ChipListField
+                label="Шаардлагатай зургийн шаардлага"
+                hint="Оруулах зурганд тавих шаардлага/зөвлөмж. (detail хуудсанд харагдана)"
+                value={editing.imageRequirements}
+                onChange={(v) => patch({ imageRequirements: v })}
+                placeholder="Ж: Царай тод, гэрэлтүүлэг сайтай зураг"
               />
 
               {/* Example output: single image, or a before/after slider */}
@@ -396,7 +493,7 @@ export function PresetManager({
                     <ImageField label="Дараа (after)" value={editing.example_output} onChange={(v) => patch({ example_output: v })} />
                   </div>
                 ) : (
-                  <ImageField label="Жишээ гаралт (example output)" value={editing.example_output} onChange={(v) => patch({ example_output: v })} />
+                  <ImageField label="Үр дүнгийн жишээ зураг (result preview)" value={editing.example_output} onChange={(v) => patch({ example_output: v })} />
                 )}
               </div>
               <ImageListField
@@ -430,5 +527,76 @@ export function PresetManager({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function PresetRowItem({
+  p, categoryName, sortable, onToggle, onEdit, onRemove,
+}: {
+  p: PresetRow;
+  categoryName: string;
+  sortable: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item
+      as="div"
+      value={p}
+      drag={sortable ? "y" : false}
+      dragListener={false}
+      dragControls={controls}
+      whileDrag={sortable ? { scale: 1.01 } : undefined}
+    >
+      <Card>
+        <CardContent className="flex items-center gap-1 p-3">
+          {sortable ? (
+            <button
+              type="button"
+              onPointerDown={(e) => controls.start(e)}
+              className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+              aria-label="Чирж эрэмбэлэх"
+            >
+              <GripVertical size={16} />
+            </button>
+          ) : (
+            <span
+              className="shrink-0 cursor-not-allowed rounded p-1 text-muted-foreground/30"
+              title="Эрэмбэлэхийн тулд тодорхой ангилал сонгоно уу"
+              aria-hidden
+            >
+              <GripVertical size={16} />
+            </span>
+          )}
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-foreground/10">
+            {p.example_output ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={p.example_output} alt="" className="h-full w-full object-cover" />
+            ) : null}
+          </div>
+          <div className="min-w-0 flex-1 ml-2">
+            <p className="truncate font-semibold mb-2">
+              {p.name_mn}
+              {!p.is_active && <Badge variant="secondary" className="ml-2 text-xs">Идэвхгүй</Badge>}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{categoryName}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              ₮{p.price_mnt.toLocaleString()} · {p.output_ratio}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onToggle} aria-label="Идэвх солих">
+            {p.is_active ? <Eye size={15} /> : <EyeOff size={15} className="text-muted-foreground" />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onEdit} aria-label="Засах">
+            <Pencil size={15} />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onRemove} aria-label="Устгах">
+            <Trash2 size={15} className="text-destructive" />
+          </Button>
+        </CardContent>
+      </Card>
+    </Reorder.Item>
   );
 }

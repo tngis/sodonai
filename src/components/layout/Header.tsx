@@ -116,7 +116,7 @@ export function Header() {
             <Button
               render={<Link href="/auth" />}
               variant="shadow"
-              className="h-8 gap-1.5 rounded-xl border border-[#8aa800] bg-primary px-3 font-bold text-primary-foreground active:scale-95"
+              className="h-8 gap-1.5 rounded-xl border border-[#737373] bg-primary px-3 font-bold text-primary-foreground active:scale-95"
             >
                {t("signIn")}<LogIn size={16} />
             </Button>

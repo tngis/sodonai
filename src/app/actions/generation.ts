@@ -132,8 +132,14 @@ export async function runGeneration({
   try {
     await updateGen({ status: "processing", progress: 10, queue_position: null });
 
-    // Get short-lived signed URLs so the AI backend can read the private uploads
+    // Get short-lived signed URLs so the AI backend can read the private uploads.
+    // getSignedUrls yields "" for a missing object — fail loudly here rather
+    // than passing an empty URL to the AI backend.
     const signedUrls = await getSignedUrls(UPLOADS_BUCKET, uploadPaths, 900);
+    const missing = uploadPaths.filter((_, i) => !signedUrls[i]);
+    if (missing.length > 0) {
+      throw new Error(`Оруулсан зураг олдсонгүй: ${missing.join(", ")}`);
+    }
 
     await updateGen({ progress: 20 });
 

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { removeFiles, OUTPUTS_BUCKET } from "@/lib/supabase/storage";
 
 export interface UserExport {
   exportedAt: string;
@@ -51,7 +52,7 @@ export async function deleteAccount(): Promise<void> {
     .eq("user_id", user.id);
 
   if (assets && assets.length > 0) {
-    await admin.storage.from("outputs").remove(assets.map((a) => a.storage_path));
+    await removeFiles(OUTPUTS_BUCKET, assets.map((a) => a.storage_path));
   }
 
   // Delete auth user — cascades to public.users, orders, payments, generations, assets

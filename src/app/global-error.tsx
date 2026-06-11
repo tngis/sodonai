@@ -30,7 +30,7 @@ export default function GlobalError({
         </p>
         <button
           onClick={reset}
-          style={{ padding: "0.5rem 1.5rem", borderRadius: "999px", background: "#D1FE18", fontWeight: 700, cursor: "pointer", border: "none" }}
+          style={{ padding: "0.5rem 1.5rem", borderRadius: "999px", background: "#232323", color: "#F7F7F7", fontWeight: 700, cursor: "pointer", border: "none" }}
         >
           Дахин оролдох
         </button>

@@ -8,13 +8,12 @@ import { Download, Frame, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loa
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { reportGeneration } from "@/app/actions/generation";
+import { getOutputUrls } from "@/app/actions/storage";
 import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { cn, saveImageToDevice } from "@/lib/utils";
-
-const OUTPUTS_BUCKET = "outputs";
 
 interface GenerationResult {
   id: string;
@@ -56,10 +55,7 @@ function OutputContent() {
       const publicUrls = typed.result_urls.filter((u) => u.startsWith("http"));
 
       if (storagePaths.length > 0) {
-        const { data: signedData } = await supabase.storage
-          .from(OUTPUTS_BUCKET)
-          .createSignedUrls(storagePaths, 3600);
-        const resolved = (signedData ?? []).map((d) => d.signedUrl ?? "").filter(Boolean);
+        const resolved = (await getOutputUrls(storagePaths)).filter(Boolean);
         setSignedImageUrls([...publicUrls, ...resolved]);
       } else {
         setSignedImageUrls(publicUrls);
@@ -196,16 +192,16 @@ function OutputContent() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 24 }}
           className="glow-brand-sm mb-6 flex items-center gap-3 rounded-xl p-4"
-          style={{ background: "#D1FE1815", border: "1px solid #D1FE1840" }}
+          style={{ background: "color-mix(in oklab, var(--foreground) 6%, transparent)", border: "1px solid color-mix(in oklab, var(--foreground) 16%, transparent)" }}
         >
           <motion.div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-            style={{ background: "#D1FE18" }}
+            style={{ background: "var(--primary)" }}
             initial={{ scale: 0, rotate: -90 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
           >
-            <span className="text-sm font-black text-black">✓</span>
+            <span className="text-sm font-black text-primary-foreground">✓</span>
           </motion.div>
           <p className="text-sm font-medium">{t("outputTitle")}</p>
         </motion.div>
