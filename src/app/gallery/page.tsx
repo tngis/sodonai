@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import { Download, Share2, Frame, AlertTriangle, Loader2 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
+import { getOutputUrls } from "@/app/actions/storage";
 import { useUserGenerations } from "@/lib/use-generations";
 import { saveImageToDevice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -67,8 +68,8 @@ export default function GalleryPage() {
 
     if (assets && assets.length > 0) {
       const paths = assets.map((a) => a.storage_path);
-      const { data: signed } = await supabase.storage.from("outputs").createSignedUrls(paths, 3600);
-      const urlMap = Object.fromEntries((signed ?? []).map((s, i) => [paths[i], s.signedUrl ?? ""]));
+      const signed = await getOutputUrls(paths);
+      const urlMap = Object.fromEntries(signed.map((url, i) => [paths[i], url]));
       setGallery(assets.map((a) => ({ ...a, signedUrl: urlMap[a.storage_path] ?? "" })));
     }
     setLoading(false);

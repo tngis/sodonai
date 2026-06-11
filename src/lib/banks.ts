@@ -34,5 +34,5 @@ export function BG_SWATCHES(name: string): string {
     "Family Room": "linear-gradient(135deg,#fdba74,#f97316)",
     "Minimal": "#e5e7eb",
   };
-  return map[name] ?? "linear-gradient(135deg,#d1fe18,#a8cc00)";
+  return map[name] ?? "linear-gradient(135deg,#7f7f7f,#404040)";
 }

@@ -182,8 +182,8 @@ export default function CategoryPage({ params }: { params: Promise<{ id: string 
                       <Badge variant="secondary" className="text-xs">{preset.steps} алхам</Badge>
                     </div>
 
-                    <Button render={<Link href={`/generate/${preset.id}`} />} variant="shadow" className="w-full bg-primary text-black justify-center rounded-full font-bold">
-                      Зураг үүсгэх <ArrowRight size={14} className="ml-1" />
+                    <Button render={<Link href={`/preset/${preset.id}`} />} variant="shadow" className="w-full bg-primary text-black justify-center rounded-full font-bold">
+                      {t("details")} <ArrowRight size={14} className="ml-1" />
                     </Button>
                   </CardContent>
                 </Card>

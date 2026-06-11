@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, Check, Plus, Loader2, CheckCircle2, Frame as FrameIcon, MapPin } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
+import { getOutputUrls } from "@/app/actions/storage";
 import { listAddresses } from "@/app/actions/addresses";
 import { createPrintIntent } from "@/app/actions/print";
 import { formatAddress } from "@/lib/address";
@@ -89,10 +90,10 @@ function PrintConfigurator() {
 
       if (assets?.length) {
         const paths = assets.map((a) => a.storage_path);
-        const { data: signed } = await supabase.storage.from("outputs").createSignedUrls(paths, 3600);
+        const signed = await getOutputUrls(paths);
         const items: GalleryItem[] = assets.map((a, i) => ({
           path: a.storage_path,
-          url: signed?.[i]?.signedUrl ?? "",
+          url: signed[i] ?? "",
           generationId: a.generation_id,
         }));
         setGallery(items);

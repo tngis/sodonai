@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { r2, EXAMPLES_BUCKET, publicUrl } from "@/lib/r2/client";
 import { assertAdmin } from "@/lib/auth-admin";
 import { notify } from "@/lib/notify";
 import type {
@@ -12,7 +14,6 @@ import type {
   PrintDeliveryStatus,
 } from "@/lib/supabase/types";
 
-const EXAMPLES_BUCKET = "examples";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -112,6 +113,33 @@ export async function deletePreset(id: string): Promise<void> {
   revalidateAdmin();
 }
 
+// ─── Drag & drop reordering ──────────────────────────────────
+// Persists a new sort_order for the affected rows. The client sends only the
+// rows whose position actually changed, each with its new zero-based index.
+export async function reorderCategories(updates: { id: string; sort_order: number }[]): Promise<void> {
+  await assertAdmin();
+  if (updates.length === 0) return;
+  const admin = createAdminClient();
+  const results = await Promise.all(
+    updates.map((u) => admin.from("categories").update({ sort_order: u.sort_order }).eq("id", u.id))
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
+  revalidateAdmin();
+}
+
+export async function reorderPresets(updates: { id: string; sort_order: number }[]): Promise<void> {
+  await assertAdmin();
+  if (updates.length === 0) return;
+  const admin = createAdminClient();
+  const results = await Promise.all(
+    updates.map((u) => admin.from("presets").update({ sort_order: u.sort_order }).eq("id", u.id))
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
+  revalidateAdmin();
+}
+
 // ─── Saved quick-select options ──────────────────────────────
 export async function addOptionSuggestion(kind: SuggestionKind, value: string): Promise<void> {
   await assertAdmin();
@@ -195,15 +223,18 @@ export async function uploadExampleImage(formData: FormData): Promise<string> {
   if (!ALLOWED_TYPES.includes(file.type)) throw new Error("Зөвхөн JPEG, PNG, WEBP зураг оруулна уу.");
   if (file.size > MAX_FILE_SIZE) throw new Error("Зургийн хэмжээ 10MB-аас хэтрэхгүй байх ёстой.");
 
-  const admin = createAdminClient();
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const path = `${randomUUID()}.${ext}`;
+  const body = new Uint8Array(await file.arrayBuffer());
 
-  const { error } = await admin.storage
-    .from(EXAMPLES_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (error) throw new Error(`Зураг оруулахад алдаа: ${error.message}`);
+  await r2().send(
+    new PutObjectCommand({
+      Bucket: EXAMPLES_BUCKET,
+      Key: path,
+      Body: body,
+      ContentType: file.type,
+    })
+  );
 
-  const { data } = admin.storage.from(EXAMPLES_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  return publicUrl(path);
 }

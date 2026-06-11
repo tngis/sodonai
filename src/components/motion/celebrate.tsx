@@ -3,7 +3,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useMemo } from "react";
 
-const COLORS = ["#D1FE18", "#a8cc00", "#ffffff", "#e8ff7a"];
+const COLORS = ["#232323", "#404040", "#7F7F7F", "#C4C4C4", "#F7F7F7"];
 
 // Deterministic pseudo-random in [0,1) from a seed — keeps render pure
 // (no Math.random during render) while still looking scattered.

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSignedUrls } from "@/lib/supabase/storage";
 import { OrderManager, type AdminOrderItem } from "@/components/admin/order-manager";
 import type { Database } from "@/lib/supabase/types";
 
@@ -52,10 +53,8 @@ export default async function AdminOrdersPage() {
 
   // 3) Batch-sign thumbnails for the print rows we loaded (single storage call).
   const printPaths = prints.map((p) => p.asset_storage_path);
-  const signed = printPaths.length
-    ? (await admin.storage.from(OUTPUTS_BUCKET).createSignedUrls(printPaths, 3600)).data ?? []
-    : [];
-  const thumbByPath = new Map(printPaths.map((path, i) => [path, signed[i]?.signedUrl ?? ""]));
+  const signed = printPaths.length ? await getSignedUrls(OUTPUTS_BUCKET, printPaths, 3600) : [];
+  const thumbByPath = new Map(printPaths.map((path, i) => [path, signed[i] ?? ""]));
 
   const items: AdminOrderItem[] = orders.map((o) => {
     const pr = printByOrder.get(o.id);

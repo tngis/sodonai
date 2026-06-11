@@ -56,8 +56,8 @@ export function MobileBottomNav() {
                   className={cn(
                     "flex min-h-10 w-14 -translate-y-2 items-center justify-center overflow-hidden rounded-xl bg-primary font-bold text-primary-foreground transition-all duration-200 active:translate-y-[-3px] active:shadow-none",
                     isActive
-                      ? "shadow-[0_6px_0_0_#8aa800,0_0_24px_-2px_var(--brand)]"
-                      : "shadow-[0_6px_0_0_#8aa800]"
+                      ? "shadow-[0_6px_0_0_#737373,0_0_24px_-2px_var(--brand)]"
+                      : "shadow-[0_6px_0_0_#737373]"
                   )}
                 >
                   <NextImage src="/spark-icon.png" alt="" width={40} height={40} className="h-10 w-10 object-contain" />
