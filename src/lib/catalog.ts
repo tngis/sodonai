@@ -52,6 +52,13 @@ export interface CategoryWithPresets extends Category {
   presets: Preset[];
 }
 
+// A preset on the landing-page featured rail (the most-generated presets
+// overall), paired with its category for labelling. See getFeaturedPresetsServer.
+export interface FeaturedPreset {
+  category: Category;
+  preset: Preset;
+}
+
 // Simple in-memory cache so navigating between pages (home → generate →
 // category) within a session doesn't re-fetch the whole catalog each time.
 // Categories/presets change rarely; a short TTL keeps it fresh enough and a
