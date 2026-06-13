@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
-import { ChevronsLeftRight } from "lucide-react";
+import { useRef, useState, useCallback, type ReactNode } from "react";
+import { ChevronsLeftRight, ImageOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BeforeAfterProps {
@@ -9,8 +9,8 @@ interface BeforeAfterProps {
   after: string;
   beforeLabel?: string;
   afterLabel?: string;
-  /** Emoji shown if an image fails to load. */
-  fallback?: string;
+  /** Glyph shown if an image fails to load. */
+  fallback?: ReactNode;
   className?: string;
 }
 
@@ -21,7 +21,7 @@ export function BeforeAfter({
   after,
   beforeLabel = "Өмнө",
   afterLabel = "Дараа",
-  fallback = "🖼️",
+  fallback = <ImageOff className="size-12 text-muted-foreground" />,
   className,
 }: BeforeAfterProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -58,7 +58,7 @@ export function BeforeAfter({
     >
       {/* After (full, underneath) */}
       {afterErr || !after ? (
-        <div className="flex h-full w-full items-center justify-center text-5xl">{fallback}</div>
+        <div className="flex h-full w-full items-center justify-center">{fallback}</div>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={after} alt={afterLabel} className="absolute inset-0 h-full w-full object-cover" onError={() => setAfterErr(true)} draggable={false} />
@@ -68,7 +68,7 @@ export function BeforeAfter({
       {/* Before (full-size, clipped from the right via clip-path — no ref math) */}
       <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
         {beforeErr || !before ? (
-          <div className="flex h-full w-full items-center justify-center text-5xl">{fallback}</div>
+          <div className="flex h-full w-full items-center justify-center">{fallback}</div>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={before} alt={beforeLabel} className="absolute inset-0 h-full w-full object-cover" onError={() => setBeforeErr(true)} draggable={false} />

@@ -1,17 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import NextImage from "next/image";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
-import { Home, Image, ShoppingBag, Settings } from "lucide-react";
+import { Home, Image, ShoppingBag, Sparkles, User } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 
 type Item = {
   href: string;
   icon: typeof Home;
-  key: "home" | "gallery" | "generate" | "orders" | "settings";
+  key: "home" | "gallery" | "generate" | "orders" | "profile";
   center?: boolean;
   also?: string[];
 };
@@ -19,9 +18,9 @@ type Item = {
 const navItems: Item[] = [
   { href: "/",         icon: Home,        key: "home" },
   { href: "/gallery",  icon: Image,       key: "gallery" },
-  { href: "/generate", icon: Home,        key: "generate", center: true, also: ["/category"] }, // icon unused (center renders image)
+  { href: "/generate", icon: Sparkles,    key: "generate", center: true, also: ["/category"] },
   { href: "/orders",   icon: ShoppingBag, key: "orders" },
-  { href: "/settings", icon: Settings,    key: "settings" },
+  { href: "/profile",  icon: User,        key: "profile" },
 ];
 
 export function MobileBottomNav() {
@@ -54,13 +53,16 @@ export function MobileBottomNav() {
               >
                 <motion.span
                   className={cn(
-                    "flex min-h-10 w-14 -translate-y-2 items-center justify-center overflow-hidden rounded-xl bg-primary font-bold text-primary-foreground transition-all duration-200 active:translate-y-[-3px] active:shadow-none",
+                    "flex min-h-10 w-14 -translate-y-2 items-center justify-center overflow-hidden rounded-xl bg-primary font-bold text-primary-foreground transition-all duration-200 active:translate-y-0 active:shadow-[0_1px_0_0_#a6323c]",
+                    // Raised safety-orange key: a darker-orange base bevel reads as
+                    // the moulded key edge (matches button.tsx accent), + orange LED
+                    // bloom when active. No raw grey — it tracks the brand.
                     isActive
-                      ? "shadow-[0_6px_0_0_#737373,0_0_24px_-2px_var(--brand)]"
-                      : "shadow-[0_6px_0_0_#737373]"
+                      ? "shadow-[0_5px_0_0_#a6323c,var(--shadow-glow)]"
+                      : "shadow-[0_5px_0_0_#a6323c]"
                   )}
                 >
-                  <NextImage src="/spark-icon.png" alt="" width={40} height={40} className="h-10 w-10 object-contain" />
+                  <Icon size={24} strokeWidth={2.5} />
                 </motion.span>
                 <span className={cn("text-[10px] font-semibold leading-none", isActive ? "text-primary" : "text-muted-foreground")}>
                   {t(key)}
@@ -83,7 +85,7 @@ export function MobileBottomNav() {
               <Icon
                 size={22}
                 strokeWidth={isActive ? 2.4 : 1.8}
-                className={isActive ? "drop-shadow-[0_0_6px_rgba(209,254,24,0.55)]" : undefined}
+                className={isActive ? "drop-shadow-[0_0_6px_rgba(255,71,87,0.55)]" : undefined}
               />
               <span className="leading-none">{t(key)}</span>
             </Link>

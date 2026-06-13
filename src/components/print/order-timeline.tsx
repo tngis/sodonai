@@ -65,7 +65,7 @@ function Stage<T extends string>({
                     done
                       ? "bg-primary/30 text-primary"
                       : active
-                      ? "bg-primary text-black glow-brand-sm"
+                      ? "bg-primary text-primary-foreground glow-brand-sm"
                       : "bg-muted text-muted-foreground"
                   )}
                 >

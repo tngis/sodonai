@@ -36,7 +36,9 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-2xl border border-border bg-background p-6 shadow-lg duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // chassis-surface: portaled/opaque layer, so it carries its own copy of
+          // the page grain (can't show the fixed body::after through it).
+          "chassis-surface fixed top-1/2 left-1/2 z-50 grid max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-2xl border border-border p-6 shadow-(--shadow-floating) duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -46,7 +48,7 @@ function DialogContent({
           <DialogPrimitive.Close
             data-slot="dialog-close"
             aria-label="Хаах"
-            className="absolute top-4 right-4 rounded-md opacity-70 transition-opacity outline-none hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4"
+            className="absolute top-4 right-4 flex size-8 items-center justify-center rounded-lg bg-background text-muted-foreground shadow-(--shadow-card) outline-none transition-all hover:text-foreground active:translate-y-px active:shadow-(--shadow-pressed) focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&_svg]:size-4"
           >
             <XIcon />
           </DialogPrimitive.Close>

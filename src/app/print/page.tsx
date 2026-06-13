@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Check, Plus, Loader2, CheckCircle2, Frame as FrameIcon, MapPin } from "lucide-react";
+import { ArrowLeft, Check, Plus, Loader2, CheckCircle2, Frame as FrameIcon, MapPin, ImageOff } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { getOutputUrls } from "@/app/actions/storage";
@@ -79,7 +79,9 @@ function PrintConfigurator() {
   useEffect(() => {
     (async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      // Local session read (no network); the assets query is RLS-scoped.
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) { setLoading(false); return; }
 
       const { data: assets } = await supabase
@@ -167,7 +169,7 @@ function PrintConfigurator() {
   if (gallery.length === 0) {
     return (
       <div className="flex min-h-full flex-col items-center justify-center gap-4 px-4 text-center">
-        <div className="text-5xl opacity-30">🖼️</div>
+        <ImageOff size={40} className="text-muted-foreground/50" strokeWidth={1.5} />
         <p className="text-muted-foreground">{t("noGalleryImages")}</p>
         <Button render={<Link href="/generate" />} className="rounded-full">{t("startGenerating")}</Button>
       </div>
@@ -195,14 +197,14 @@ function PrintConfigurator() {
         </button>
 
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-black">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <FrameIcon size={20} />
           </div>
           <h1 className="text-2xl font-black tracking-tight md:text-3xl">{t("printTitle")}</h1>
         </div>
 
         {/* ── Live preview ── */}
-        <div className="mb-8 flex justify-center rounded-2xl bg-muted/40 p-6 ring-1 ring-foreground/5">
+        <div className="mb-8 flex justify-center rounded-2xl p-6 shadow-(--shadow-recessed)">
           <motion.div
             layout
             className={cn("max-h-72 overflow-hidden rounded-sm shadow-xl transition-all", frame.swatchClass)}
@@ -224,13 +226,15 @@ function PrintConfigurator() {
                 key={g.path}
                 onClick={() => setSelectedPath(g.path)}
                 className={cn(
-                  "relative h-20 w-20 shrink-0 overflow-hidden rounded-xl ring-2 transition-all",
-                  selectedPath === g.path ? "ring-primary" : "ring-transparent hover:ring-border"
+                  "relative h-20 w-20 shrink-0 overflow-hidden rounded-xl transition-all",
+                  selectedPath === g.path
+                    ? "ring-2 ring-primary shadow-(--shadow-pressed) glow-brand-sm"
+                    : "shadow-(--shadow-card) hover:ring-2 hover:ring-primary/50"
                 )}
               >
                 {g.url && <Image src={g.url} alt="" fill className="object-cover" sizes="80px" unoptimized />}
                 {selectedPath === g.path && (
-                  <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-black">
+                  <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
                     <Check size={12} />
                   </span>
                 )}
@@ -247,8 +251,10 @@ function PrintConfigurator() {
                 key={f.id}
                 onClick={() => setFrameId(f.id)}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 rounded-xl border p-2 transition-all",
-                  frameId === f.id ? "border-primary glow-brand-sm" : "border-border hover:border-primary/50"
+                  "flex flex-col items-center gap-1.5 rounded-xl p-2 transition-all",
+                  frameId === f.id
+                    ? "text-primary shadow-(--shadow-pressed) glow-brand-sm"
+                    : "text-muted-foreground shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)"
                 )}
               >
                 <span className="h-10 w-10 rounded-md ring-1 ring-foreground/10" style={{ background: f.swatchStyle }} />
@@ -269,8 +275,10 @@ function PrintConfigurator() {
                 key={s.id}
                 onClick={() => setSizeId(s.id)}
                 className={cn(
-                  "rounded-xl border px-4 py-2 text-left transition-all",
-                  sizeId === s.id ? "border-primary bg-primary/10 glow-brand-sm" : "border-border hover:border-primary/50"
+                  "rounded-xl px-4 py-2 text-left transition-all",
+                  sizeId === s.id
+                    ? "bg-primary/10 text-primary shadow-(--shadow-pressed) glow-brand-sm"
+                    : "shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)"
                 )}
               >
                 <p className="text-sm font-bold">{s.label}</p>
@@ -291,8 +299,10 @@ function PrintConfigurator() {
                 key={a.id}
                 onClick={() => setAddressId(a.id)}
                 className={cn(
-                  "flex items-start gap-3 rounded-xl border p-3 text-left transition-all",
-                  addressId === a.id ? "border-primary glow-brand-sm" : "border-border hover:border-primary/50"
+                  "flex items-start gap-3 rounded-xl p-3 text-left transition-all",
+                  addressId === a.id
+                    ? "shadow-(--shadow-pressed) glow-brand-sm"
+                    : "shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)"
                 )}
               >
                 <MapPin size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
@@ -319,7 +329,7 @@ function PrintConfigurator() {
           ) : (
             <button
               onClick={() => setShowAddForm(true)}
-              className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+              className="mt-3 flex items-center gap-2 rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
             >
               <Plus size={16} /> {t("printAddAddress")}
             </button>
@@ -339,7 +349,7 @@ function PrintConfigurator() {
           <Button
             onClick={handleConfirm}
             disabled={payment.kind === "creating" || !selectedPath || !addressId}
-            className="rounded-full font-bold bg-primary text-black"
+            className="rounded-full font-bold bg-primary text-primary-foreground"
             variant="shadow"
             size="lg"
           >
@@ -359,7 +369,7 @@ function PrintConfigurator() {
             onClick={() => setPayment({ kind: "idle" })}
           >
             <motion.div
-              className="w-full max-w-md rounded-t-3xl bg-background p-6 sm:rounded-3xl"
+              className="chassis-surface relative w-full max-w-md rounded-t-3xl p-6 shadow-(--shadow-floating) sm:rounded-3xl"
               initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -382,10 +392,11 @@ function PrintConfigurator() {
                 </CardContent>
               </Card>
 
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-white p-6">
+              <div className="flex flex-col items-center gap-3 rounded-2xl bg-muted p-6 shadow-(--shadow-recessed)">
                 <p className="text-sm font-semibold text-muted-foreground">{t("qpayDesc")}</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={payment.qrImage} alt="QPay QR" className="h-44 w-44 rounded-xl" />
+                {/* QR keeps a white quiet-zone so it stays scannable on the dark chassis. */}
+                <img src={payment.qrImage} alt="QPay QR" className="h-44 w-44 rounded-xl bg-white p-2" />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 size={12} className="animate-spin" /> {t("paymentWaiting")}
                 </div>
@@ -397,7 +408,7 @@ function PrintConfigurator() {
                   {payment.deepLinks.map((dl) => {
                     const bank = banks.find((b) => b.nameMn === dl.name);
                     return (
-                      <a key={dl.name} href={dl.link} className="flex h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium hover:border-primary/50 hover:bg-muted">
+                      <a key={dl.name} href={dl.link} className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium shadow-(--shadow-card) transition-all hover:text-primary active:shadow-(--shadow-pressed)">
                         <span className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black text-white" style={{ background: bank?.color ?? "#666" }}>
                           {dl.name.slice(0, 1)}
                         </span>
@@ -419,7 +430,7 @@ function Section({ step, title, hint, children }: { step: number; title: string;
   return (
     <div className="mb-6">
       <div className="mb-3 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-black">{step}</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-[2px_2px_4px_rgba(166,50,60,0.45),-2px_-2px_4px_rgba(255,107,117,0.45)] glow-brand-sm">{step}</span>
         <h2 className="text-lg font-bold">{title}</h2>
       </div>
       {hint && <p className="mb-3 -mt-1 ml-8 text-sm text-muted-foreground">{hint}</p>}

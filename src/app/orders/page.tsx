@@ -52,7 +52,9 @@ export default function OrdersPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // Local session read (no network); orders/print queries are RLS-scoped.
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) { setLoading(false); return; }
 
     const [ordersRes, presetsRes, printsRes] = await Promise.all([
@@ -90,7 +92,7 @@ export default function OrdersPage() {
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-6 text-2xl font-black tracking-tight md:text-3xl">{t("myOrders")}</h1>
+        <h1 className="mb-6 font-display text-2xl font-black tracking-tight text-embossed md:text-3xl">{t("myOrders")}</h1>
 
         {loading ? (
           <div className="flex flex-col gap-3">
@@ -112,7 +114,7 @@ export default function OrdersPage() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: Math.min(i * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
-                  className="glass flex flex-col gap-3 rounded-xl p-4"
+                  className="flex flex-col gap-3 rounded-xl p-4 shadow-(--shadow-card)"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-col gap-0.5">

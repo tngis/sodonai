@@ -14,7 +14,7 @@ const TABS = [
 export function AdminNav() {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-1 rounded-xl bg-muted p-1">
+    <nav className="flex gap-1 rounded-xl bg-muted p-1 shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]">
       {TABS.map((tab) => {
         const active = tab.href === "/admin" ? pathname === "/admin" : pathname.startsWith(tab.href);
         return (
@@ -23,7 +23,7 @@ export function AdminNav() {
             href={tab.href}
             className={cn(
               "flex-1 rounded-lg px-3 py-2 text-center text-sm font-semibold transition-colors",
-              active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              active ? "bg-background text-foreground shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)]" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {tab.label}

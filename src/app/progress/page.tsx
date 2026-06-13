@@ -151,7 +151,7 @@ function ProgressContent() {
         <div
           aria-live="polite"
           aria-atomic="true"
-          className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold"
+          className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold shadow-(--shadow-recessed)"
         >
           <span
             aria-hidden="true"
@@ -175,7 +175,7 @@ function ProgressContent() {
 
         {/* Queue position */}
         {gen?.queue_position != null && gen.status === "queued" && (
-          <div className="mb-6 rounded-xl border border-border bg-card p-4">
+          <div className="mb-6 rounded-xl p-4 shadow-(--shadow-card)">
             <p className="text-xs text-muted-foreground">{t("queuePosition")}</p>
             <p className="text-2xl font-black text-primary">#{gen.queue_position}</p>
           </div>

@@ -3,7 +3,8 @@
 import { motion, useReducedMotion } from "motion/react";
 import { useMemo } from "react";
 
-const COLORS = ["#232323", "#404040", "#7F7F7F", "#C4C4C4", "#F7F7F7"];
+// Safety-orange forward confetti — brand accent + warm amber + light chassis flecks.
+const COLORS = ["#ff4757", "#ff6b75", "#ffa502", "#e0e5ec", "#ffffff"];
 
 // Deterministic pseudo-random in [0,1) from a seed — keeps render pure
 // (no Math.random during render) while still looking scattered.
@@ -38,7 +39,7 @@ export function Celebrate({ count = 28 }: { count?: number }) {
       {pieces.map((p) => (
         <motion.span
           key={p.id}
-          className="absolute top-0 rounded-[2px]"
+          className="absolute top-0 rounded-xs"
           style={{ width: p.size, height: p.size * 1.4, background: p.color }}
           initial={{ opacity: 1, x: 0, y: -20, rotate: 0 }}
           animate={{ opacity: [1, 1, 0], x: p.x, y: p.y, rotate: p.rotate }}
