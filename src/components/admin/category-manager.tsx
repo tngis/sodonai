@@ -15,7 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { TextField, NumberField, TextareaField, CheckboxField, ImageField } from "@/components/admin/fields";
+import { CategoryGlyph, CATEGORY_ICON_NAMES } from "@/components/category-icon";
 
 type CategoryRow = Database["public"]["Tables"]["categories"]["Row"];
 
@@ -156,7 +161,23 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
               </DialogHeader>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <TextField label="ID (латин, өвөрмөц)" value={editing.id} onChange={(v) => patch({ id: v })} disabled={!isNew} placeholder="cat-family" mono />
-                <TextField label="Icon (эможи, зураггүй үед)" value={editing.icon} onChange={(v) => patch({ icon: v })} placeholder="👨‍👩‍👧‍👦" />
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-sm font-semibold">Icon (зураггүй үед)</Label>
+                  <Select value={editing.icon || null} onValueChange={(v) => { if (typeof v === "string") patch({ icon: v }); }}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Сонгох" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORY_ICON_NAMES.map((name) => (
+                        <SelectItem key={name} value={name}>
+                          <span className="flex items-center gap-2">
+                            <CategoryGlyph category={{ icon: name }} className="size-4" /> {name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="sm:col-span-2">
                   <ImageField label="Зураг (icon-ийг орлоно)" value={editing.image_url ?? ""} onChange={(v) => patch({ image_url: v || null })} />
                 </div>
@@ -208,7 +229,9 @@ function CategoryRowItem({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={c.image_url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
           ) : (
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center text-2xl">{c.icon}</span>
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center text-muted-foreground">
+              <CategoryGlyph category={c} className="size-7" />
+            </span>
           )}
           <div className="min-w-0 flex-1 ml-2">
             <p className="truncate font-semibold mb-2">
