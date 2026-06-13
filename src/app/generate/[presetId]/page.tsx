@@ -1,17 +1,20 @@
 "use client";
 
-import { use, useState, useCallback, useEffect } from "react";
+import { use, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, ArrowRight, Upload, Camera, AlertTriangle, Check, X, Loader2, CheckCircle2, Plus } from "lucide-react";
+import { ArrowLeft, ArrowRight, Upload, Camera, AlertTriangle, Check, X, Loader2, Plus, Wallet, QrCode } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { getPreset, type Category, type Preset } from "@/lib/catalog";
 import { banks } from "@/lib/banks";
-import { createPaymentIntent, type PaymentIntentResult } from "@/app/actions/payment";
+import { createPaymentIntent, payWithWallet, type PaymentIntentResult } from "@/app/actions/payment";
+import { getWalletBalance } from "@/app/actions/wallet";
+import { formatMnt } from "@/lib/wallet";
+import { notifyGenerationStarted } from "@/lib/generation-events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { CategoryIcon } from "@/components/category-icon";
+import { CategoryGlyph } from "@/components/category-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -49,12 +52,12 @@ function parseRatio(ratio: string): number | null {
 }
 
 // Example input thumbnail — shows the real preset sample image, falling back
-// to the category emoji if the src is missing or fails to load.
-function ExampleThumb({ src, fallback }: { src: string; fallback: string }) {
+// to the category icon if the src is missing or fails to load.
+function ExampleThumb({ src, fallback }: { src: string; fallback: ReactNode }) {
   const [error, setError] = useState(false);
   if (!src || error) {
     return (
-      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-muted text-3xl">
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
         {fallback}
       </div>
     );
@@ -75,8 +78,7 @@ type Step = 1 | 2 | 3;
 type PaymentPhase =
   | { kind: "idle" }
   | { kind: "creating" }
-  | { kind: "awaiting"; paymentId: string; orderId: string; qrImage: string; deepLinks: QPayDeepLink[] }
-  | { kind: "confirmed"; generationId: string };
+  | { kind: "awaiting"; paymentId: string; orderId: string; qrImage: string; deepLinks: QPayDeepLink[] };
 
 const POLL_MS = 2500;
 
@@ -94,13 +96,21 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
   const [dragOver, setDragOver] = useState(false);
   const [selectedBg, setSelectedBg] = useState("");
   const [intensity, setIntensity] = useState(50);
-  const [isPrivate, setIsPrivate] = useState(true);
+  // "Show to others" — off by default (private). Sent to the server as the
+  // inverse `isPrivate`. The owner's master switch in Settings still gates
+  // whether shared images actually appear in the public showcase.
+  const [share, setShare] = useState(false);
   const [ratio, setRatio] = useState("");
   // Aspect (width / height) of the first uploaded image — used to render the
   // "Original" preview at the real input proportions.
   const [originalAspect, setOriginalAspect] = useState<number | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [payment, setPayment] = useState<PaymentPhase>({ kind: "idle" });
+  // Wallet (default) vs QPay. Balance loads when the user reaches the pay step.
+  const [method, setMethod] = useState<"wallet" | "qpay">("wallet");
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  // Guards the payment poll so a confirmed payment is handled exactly once.
+  const confirmedRef = useRef(false);
 
   useEffect(() => {
     getPreset(presetId).then((result) => {
@@ -188,9 +198,15 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
         const res = await fetch(`/api/payment/${paymentId}`);
         if (!res.ok) return;
         const data: { status: string; generationId?: string } = await res.json();
-        if (data.status === "paid" && data.generationId) {
-          setPayment({ kind: "confirmed", generationId: data.generationId });
-          setTimeout(() => router.push(`/progress?id=${data.generationId}`), 800);
+        if (data.status === "paid" && data.generationId && !confirmedRef.current) {
+          // Payment cleared and the generation is queued. Don't park the user on
+          // a loader — tell them it started, then drop them in the gallery where
+          // the placeholder card tracks progress. The global notifier fires the
+          // "done" toast (with a tap-through) once it finishes.
+          confirmedRef.current = true;
+          notifyGenerationStarted();
+          toast.success(t("genStartedToast"), { description: t("genStartedToastDesc") });
+          router.push("/gallery");
         }
       } catch {
         // network hiccup — keep polling
@@ -200,26 +216,33 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
     poll();
     const id = setInterval(poll, POLL_MS);
     return () => clearInterval(id);
-  }, [payment, router]);
+  }, [payment, router, t]);
 
-  const handleCreateInvoice = async () => {
-    if (!termsAccepted) {
-      toast.error("Нөхцлийг зөвшөөрнө үү.");
-      return;
+  // Load the wallet balance once the user reaches the payment step.
+  useEffect(() => {
+    if (step === 3 && walletBalance === null) {
+      getWalletBalance().then(setWalletBalance).catch(() => setWalletBalance(0));
     }
+  }, [step, walletBalance]);
+
+  const buildFormData = () => {
+    const formData = new FormData();
+    formData.set("presetId", preset!.id);
+    formData.set("amountMnt", String(preset!.price_mnt));
+    formData.set("ratio", ratio);
+    formData.set("background", selectedBg);
+    formData.set("intensity", String(intensity));
+    formData.set("isPrivate", String(!share));
+    finalFiles.forEach((file, i) => formData.set(`file_${i}`, file));
+    return formData;
+  };
+
+  // QPay: create an invoice, then poll for confirmation (existing flow).
+  const handleQpayPay = async () => {
+    confirmedRef.current = false;
     setPayment({ kind: "creating" });
-
     try {
-      const formData = new FormData();
-      formData.set("presetId", preset!.id);
-      formData.set("amountMnt", String(preset!.price_mnt));
-      formData.set("ratio", ratio);
-      formData.set("background", selectedBg);
-      formData.set("intensity", String(intensity));
-      formData.set("isPrivate", String(isPrivate));
-      finalFiles.forEach((file, i) => formData.set(`file_${i}`, file));
-
-      const result: PaymentIntentResult = await createPaymentIntent(formData);
+      const result: PaymentIntentResult = await createPaymentIntent(buildFormData());
       setPayment({
         kind: "awaiting",
         paymentId: result.paymentId,
@@ -233,6 +256,32 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
     }
   };
 
+  // Wallet: the debit settles synchronously and generation starts immediately —
+  // no QR/polling, so drop the user straight into the gallery.
+  const handleWalletPay = async () => {
+    setPayment({ kind: "creating" });
+    try {
+      await payWithWallet(buildFormData());
+      notifyGenerationStarted();
+      toast.success(t("genStartedToast"), { description: t("genStartedToastDesc") });
+      router.push("/gallery");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа. Дахин оролдоно уу.");
+      setPayment({ kind: "idle" });
+      // Balance may have changed (or the debit raced) — refresh it.
+      getWalletBalance().then(setWalletBalance).catch(() => {});
+    }
+  };
+
+  const handlePay = () => {
+    if (!termsAccepted) {
+      toast.error("Нөхцлийг зөвшөөрнө үү.");
+      return;
+    }
+    if (method === "wallet") return handleWalletPay();
+    return handleQpayPay();
+  };
+
   const stepLabels = [t("uploadStep"), t("optionsStep"), t("paymentStep")];
 
   if (catalogLoading || !preset || !category) {
@@ -242,6 +291,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
       </div>
     );
   }
+
+  const price = preset.price_mnt;
+  const insufficient = walletBalance !== null && walletBalance < price;
 
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
@@ -278,12 +330,12 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     animate={{ scale: active ? 1.1 : 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 20 }}
                     className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all",
                       done
-                        ? "bg-primary text-primary-foreground glow-brand-sm"
+                        ? "bg-primary text-primary-foreground shadow-[2px_2px_4px_rgba(166,50,60,0.45),-2px_-2px_4px_rgba(255,107,117,0.45)] glow-brand-sm"
                         : active
-                        ? "border-2 border-primary bg-background text-primary glow-brand-sm"
-                        : "bg-muted text-muted-foreground"
+                        ? "bg-background text-primary shadow-(--shadow-floating) glow-brand-sm"
+                        : "bg-background text-muted-foreground shadow-(--shadow-card)"
                     )}
                   >
                     {done ? <Check size={12} /> : n}
@@ -416,7 +468,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
               <p className="mb-2 text-sm font-semibold text-muted-foreground">{t("exampleInputs")}</p>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 {preset.example_inputs.map((src, idx) => (
-                  <ExampleThumb key={idx} src={src} fallback={category.icon} />
+                  <ExampleThumb key={idx} src={src} fallback={<CategoryGlyph category={category} className="size-8" />} />
                 ))}
               </div>
             </div>
@@ -424,7 +476,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
             <Button
               onClick={() => setStep(2)}
               disabled={!canContinue}
-              className="w-full rounded-full font-bold bg-primary text-black"
+              className="w-full rounded-full font-bold bg-primary text-primary-foreground"
               size="lg"
               variant="shadow"
             >
@@ -494,23 +546,29 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
               </div>
             )}
 
-            {/* Private toggle */}
-            <div className="flex items-center justify-between rounded-xl border border-border p-4">
+            {/* Share-to-showcase toggle — off by default (private). */}
+            <div className="flex items-start justify-between gap-4 rounded-xl p-4 shadow-(--shadow-card)">
               <div>
-                <p className="font-semibold">{t("privateToggle")}</p>
-                <p className="text-xs text-muted-foreground">Зөвхөн та харах боломжтой</p>
+                <p className="font-semibold">{t("shareToggle")}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t("shareToggleHelp")}</p>
               </div>
               <button
-                onClick={() => setIsPrivate(!isPrivate)}
+                type="button"
+                role="switch"
+                aria-checked={share}
+                aria-label={t("shareToggle")}
+                onClick={() => setShare(!share)}
                 className={cn(
-                  "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                  isPrivate ? "bg-primary" : "bg-muted"
+                  "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
+                  share
+                    ? "bg-primary"
+                    : "bg-muted shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]"
                 )}
               >
                 <span
                   className={cn(
-                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
-                    isPrivate ? "translate-x-6" : "translate-x-1"
+                    "inline-block h-4 w-4 transform rounded-full bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)] transition-transform",
+                    share ? "translate-x-6" : "translate-x-1"
                   )}
                 />
               </button>
@@ -518,7 +576,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
             <Button
               onClick={() => setStep(3)}
-              className="w-full rounded-full font-bold bg-primary text-black"
+              className="w-full rounded-full font-bold bg-primary text-primary-foreground"
               variant="shadow"
               size="lg"
             >
@@ -530,17 +588,6 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
         {/* ─── STEP 3: PAYMENT ─── */}
         {step === 3 && (
           <div className="flex flex-col gap-6">
-
-            {/* ── Payment confirmed ──────────────────────────────── */}
-            {payment.kind === "confirmed" && (
-              <div className="flex flex-col items-center gap-4 py-12 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-                  <CheckCircle2 size={32} className="text-primary-foreground" />
-                </div>
-                <p className="text-xl font-black">{t("paymentConfirmed")}</p>
-                <Loader2 size={20} className="animate-spin text-muted-foreground" />
-              </div>
-            )}
 
             {/* ── Waiting for payment (QR shown) ─────────────────── */}
             {payment.kind === "awaiting" && (
@@ -574,13 +621,14 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                 </Card>
 
                 {/* QPay QR */}
-                <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-white p-6">
+                <div className="flex flex-col items-center gap-3 rounded-2xl bg-muted p-6 shadow-(--shadow-recessed)">
                   <p className="text-sm font-semibold text-muted-foreground">{t("qpayDesc")}</p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {/* QR keeps a white quiet-zone so it stays scannable on the dark chassis. */}
                   <img
                     src={payment.qrImage}
                     alt="QPay QR code"
-                    className="h-48 w-48 rounded-xl"
+                    className="h-48 w-48 rounded-xl bg-white p-2"
                   />
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 size={12} className="animate-spin" />
@@ -599,7 +647,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                         <a
                           key={dl.name}
                           href={dl.link}
-                          className="flex h-12 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-muted"
+                          className="flex h-12 items-center gap-2 rounded-xl px-3 text-sm font-medium shadow-(--shadow-card) transition-all hover:text-primary active:translate-y-px active:shadow-(--shadow-pressed)"
                         >
                           <div
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black text-white"
@@ -616,10 +664,10 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
               </>
             )}
 
-            {/* ── Idle: show summary + terms + pay button ─────────── */}
+            {/* ── Idle: show summary + method + terms + pay button ── */}
             {(payment.kind === "idle" || payment.kind === "creating") && (
               <>
-                <h2 className="text-xl font-bold">{t("qpayTitle")}</h2>
+                <h2 className="text-xl font-bold">{t("paymentStep")}</h2>
 
                 {/* Order summary */}
                 <Card>
@@ -630,13 +678,66 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     </div>
                     <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                       <span className="font-bold">{t("totalPrice")}</span>
-                      <span className="text-xl font-black text-primary">₮{preset.price_mnt.toLocaleString()}</span>
+                      <span className="text-xl font-black text-primary">{formatMnt(price)}</span>
                     </div>
                   </CardContent>
                 </Card>
 
+                {/* Payment method */}
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-semibold">{t("paymentMethod")}</p>
+
+                  {/* Wallet (default) */}
+                  <button
+                    type="button"
+                    onClick={() => setMethod("wallet")}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl border p-4 text-left transition-colors",
+                      method === "wallet" ? "border-primary bg-primary/5 glow-brand-sm" : "border-border hover:border-primary/40"
+                    )}
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Wallet size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{t("payWithWallet")}</p>
+                      {walletBalance === null ? (
+                        <p className="text-xs text-muted-foreground">…</p>
+                      ) : insufficient ? (
+                        <p className="text-xs text-destructive">
+                          {t("insufficientBalance")} · {formatMnt(price - walletBalance)} {t("shortBy")}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {t("walletBalance")}: {formatMnt(walletBalance)}
+                        </p>
+                      )}
+                    </div>
+                    {method === "wallet" && <Check size={18} className="shrink-0 text-primary" />}
+                  </button>
+
+                  {/* QPay */}
+                  <button
+                    type="button"
+                    onClick={() => setMethod("qpay")}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl border p-4 text-left transition-colors",
+                      method === "qpay" ? "border-primary bg-primary/5 glow-brand-sm" : "border-border hover:border-primary/40"
+                    )}
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <QrCode size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{t("qpayTitle")}</p>
+                      <p className="text-xs text-muted-foreground">{t("qpayDesc")}</p>
+                    </div>
+                    {method === "qpay" && <Check size={18} className="shrink-0 text-primary" />}
+                  </button>
+                </div>
+
                 {/* Terms checkbox */}
-                <div className="flex items-start gap-3 rounded-xl border border-border p-4">
+                <div className="flex items-start gap-3 rounded-xl p-4 shadow-(--shadow-recessed)">
                   <Checkbox
                     id="terms"
                     checked={termsAccepted}
@@ -648,19 +749,37 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                   </Label>
                 </div>
 
-                <Button
-                  onClick={handleCreateInvoice}
-                  disabled={!termsAccepted || payment.kind === "creating"}
-                  className="w-full rounded-full font-bold bg-primary text-black"
-                  size="lg"
-                  variant="shadow"
-                >
-                  {payment.kind === "creating" ? (
-                    <><Loader2 size={16} className="mr-2 animate-spin" /> Нэхэмжлэл үүсгэж байна...</>
-                  ) : (
-                    t("payGenerate")
-                  )}
-                </Button>
+                {/* When the wallet can't cover it, nudge to top up instead of paying. */}
+                {method === "wallet" && insufficient ? (
+                  <Button
+                    onClick={() => router.push("/wallet")}
+                    className="w-full rounded-full font-bold bg-primary text-primary-foreground"
+                    size="lg"
+                    variant="shadow"
+                  >
+                    <Plus size={16} className="mr-1.5" /> {t("topUp")}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handlePay}
+                    disabled={
+                      !termsAccepted ||
+                      payment.kind === "creating" ||
+                      (method === "wallet" && walletBalance === null)
+                    }
+                    className="w-full rounded-full font-bold bg-primary text-primary-foreground"
+                    size="lg"
+                    variant="shadow"
+                  >
+                    {payment.kind === "creating" ? (
+                      <><Loader2 size={16} className="mr-2 animate-spin" /> {t("processing")}</>
+                    ) : method === "wallet" ? (
+                      t("payWithWalletPay")
+                    ) : (
+                      t("payGenerate")
+                    )}
+                  </Button>
+                )}
               </>
             )}
 

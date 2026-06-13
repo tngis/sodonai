@@ -136,6 +136,7 @@ export async function GET(
         ratio: snapshot.ratio,
         background: snapshot.background,
         intensity: snapshot.intensity,
+        isPrivate: snapshot.isPrivate,
       },
     })
   );

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadFile, storeOutputFile, validateImageFile, getSignedUrls, UPLOADS_BUCKET } from "@/lib/supabase/storage";
 import { getPresetModelConfig } from "@/lib/presets-server";
+import { refundForGeneration } from "@/lib/wallet-server";
 import { callAI } from "@/lib/ai/generate";
 import type { Database } from "@/lib/supabase/types";
 
@@ -94,7 +95,7 @@ export async function submitOrder(formData: FormData): Promise<SubmitOrderResult
       uploadPaths,
       internalPrompt,
       model,
-      options: { ratio, background, intensity },
+      options: { ratio, background, intensity, isPrivate },
     })
   );
 
@@ -108,7 +109,7 @@ export interface RunGenerationParams {
   uploadPaths: string[];
   internalPrompt: string;
   model: string;
-  options: { ratio: string; background: string | null; intensity: number | null };
+  options: { ratio: string; background: string | null; intensity: number | null; isPrivate?: boolean };
 }
 
 export async function runGeneration({
@@ -164,12 +165,16 @@ export async function runGeneration({
       .eq("generation_id", generationId)
       .limit(1);
     if (!existingAssets?.length) {
+      // Honour the user's per-generation "show to others" choice (defaults to
+      // private). The user's master switch still gates whether shared images
+      // actually appear in the public showcase.
+      const isPrivate = options.isPrivate ?? true;
       await admin.from("assets").insert(
         resultPaths.map((path) => ({
           user_id: userId,
           generation_id: generationId,
           storage_path: path,
-          is_private: true,
+          is_private: isPrivate,
         }))
       );
     }
@@ -179,6 +184,19 @@ export async function runGeneration({
     const message = err instanceof Error ? err.message : "Generation failed";
     log("generation.failed", { error: message });
     await updateGen({ status: "failed", error: message });
+    await admin.from("orders").update({ status: "failed" } as OrderUpdate).eq("id", orderId);
+
+    // Auto-refund the paid amount back to the wallet (instant, no QPay refund
+    // API). Idempotent per generation; a no-op when the order had no successful
+    // payment (e.g. the submitOrder/no-pay path).
+    try {
+      await refundForGeneration({ userId, orderId, generationId });
+      log("generation.refunded");
+    } catch (refundErr) {
+      log("generation.refund_failed", {
+        error: refundErr instanceof Error ? refundErr.message : String(refundErr),
+      });
+    }
   }
 }
 
