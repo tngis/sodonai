@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "motion/react";
-import { Download, Share2, Frame, AlertTriangle, Loader2 } from "lucide-react";
+import { Download, Share2, Frame, AlertTriangle, Loader2, UserRound, Eye, ImageOff } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { getOutputUrls } from "@/app/actions/storage";
+import { setAvatarFromGallery } from "@/app/actions/profile";
 import { useUserGenerations } from "@/lib/use-generations";
 import { saveImageToDevice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ function GeneratingCard({ createdAt }: { createdAt: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createdAt]);
   return (
-    <div className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl bg-muted ring-1 ring-foreground/10">
+    <div className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl shadow-(--shadow-recessed)">
       <Loader2 size={22} className="animate-spin text-primary" />
       <p className="px-2 text-center text-xs font-medium text-muted-foreground">
         {t("generating")} · {elapsed}{lang === "mn" ? "с" : "s"}
@@ -40,6 +41,7 @@ interface GalleryItem {
   id: string;
   generation_id: string | null;
   storage_path: string;
+  is_private: boolean;
   signedUrl: string;
   created_at: string;
 }
@@ -57,12 +59,15 @@ export default function GalleryPage() {
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // getSession reads the local session (no network round-trip); the assets
+    // query below is RLS-scoped, so ownership is still enforced server-side.
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) { setLoading(false); return; }
 
     const { data: assets } = await supabase
       .from("assets")
-      .select("id, generation_id, storage_path, created_at")
+      .select("id, generation_id, storage_path, is_private, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -100,10 +105,24 @@ export default function GalleryPage() {
     }
   };
 
+  const [settingAvatar, setSettingAvatar] = useState(false);
+  const handleSetProfile = async (storagePath: string) => {
+    if (settingAvatar) return;
+    setSettingAvatar(true);
+    try {
+      await setAvatarFromGallery(storagePath);
+      toast.success(t("avatarUpdated"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
+    } finally {
+      setSettingAvatar(false);
+    }
+  };
+
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-6 text-2xl font-black tracking-tight md:text-3xl">{t("myGallery")}</h1>
+        <h1 className="mb-6 font-display text-2xl font-black tracking-tight text-embossed md:text-3xl">{t("myGallery")}</h1>
 
         {loading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -138,24 +157,41 @@ export default function GalleryPage() {
                     <AlertTriangle size={20} className="text-muted-foreground" />
                   </div>
                 )}
+                {/* Public-showcase indicator — only on shared images. */}
+                {!img.is_private && (
+                  <span
+                    title={t("sharedBadge")}
+                    className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-primary shadow-(--shadow-floating) backdrop-blur-sm"
+                  >
+                    <Eye size={11} /> {t("sharedBadge")}
+                  </span>
+                )}
                 <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDownload(img.signedUrl, i); }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label="Татах"
                   >
                     <Download size={14} />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleShare(img.signedUrl); }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label="Хуваалцах"
                   >
                     <Share2 size={14} />
                   </button>
                   <button
+                    onClick={(e) => { e.stopPropagation(); handleSetProfile(img.storage_path); }}
+                    disabled={settingAvatar}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed) disabled:opacity-60"
+                    aria-label={t("setAsProfilePicture")}
+                  >
+                    <UserRound size={14} />
+                  </button>
+                  <button
                     onClick={(e) => { e.stopPropagation(); router.push(`/print?asset=${encodeURIComponent(img.storage_path)}`); }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-black hover:brightness-110"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[4px_4px_8px_rgba(166,50,60,0.45),-4px_-4px_8px_rgba(255,107,117,0.45)] transition-all hover:brightness-110 active:shadow-[inset_4px_4px_8px_rgba(166,50,60,0.55),inset_-4px_-4px_8px_rgba(255,107,117,0.4)]"
                     aria-label={t("orderPrint")}
                   >
                     <Frame size={14} />
@@ -166,7 +202,7 @@ export default function GalleryPage() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <div className="text-5xl opacity-30">🖼️</div>
+            <ImageOff size={40} className="text-muted-foreground/50" strokeWidth={1.5} />
             <p className="text-muted-foreground">{t("noImages")}</p>
             <Button render={<Link href="/generate" />} size="sm" className="rounded-full">
               {t("startGenerating")}
