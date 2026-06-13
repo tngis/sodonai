@@ -443,7 +443,7 @@ function PrintOrderCard({ order }: { order: AdminOrderItem }) {
         delivery_status: delv,
         admin_note: note.trim() || null,
       });
-      toast.success("Хадгаллаа ✓");
+      toast.success("Хадгаллаа");
       setBaseline({ prod, delv, note: note.trim() });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");

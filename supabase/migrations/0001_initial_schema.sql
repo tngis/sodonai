@@ -214,10 +214,10 @@ create trigger set_updated_at_generations
 -- Seed: categories & presets from data.ts
 -- ============================================================
 insert into public.categories (id, name_mn, name_en, description_mn, description_en, icon, sort_order) values
-  ('cat-family',      'Гэр бүлийн зураг',       'Family Photos',           'Гэр бүл, найзуудтайгаа бодит мэт хамт зураг бүтээх.', 'Create realistic photos with family and friends.',   '👨‍👩‍👧‍👦', 1),
-  ('cat-restoration', 'Хуучин зураг сэргээх',   'Old Photo Restoration',   'Шаргалтсан, бүдгэрсэн, урагдсан зургийг сайжруулах.', 'Fix yellowed, faded, torn photos.',                  '🖼️', 2),
-  ('cat-bg',          'Фон солих',               'Background Replacement',  'Зургийн арын фоныг мэргэжлийн байдлаар солих.',        'Replace backgrounds professionally.',                '🎨', 3),
-  ('cat-portrait',    'Портрет сайжруулах',      'Portrait Enhancement',    'Царай, арьсны өнгийг мэргэжлийн зургийн чанарт хүргэх.', 'Enhance face and skin to professional photo quality.', '✨', 4);
+  ('cat-family',      'Гэр бүлийн зураг',       'Family Photos',           'Гэр бүл, найзуудтайгаа бодит мэт хамт зураг бүтээх.', 'Create realistic photos with family and friends.',   'users', 1),
+  ('cat-restoration', 'Хуучин зураг сэргээх',   'Old Photo Restoration',   'Шаргалтсан, бүдгэрсэн, урагдсан зургийг сайжруулах.', 'Fix yellowed, faded, torn photos.',                  'image', 2),
+  ('cat-bg',          'Фон солих',               'Background Replacement',  'Зургийн арын фоныг мэргэжлийн байдлаар солих.',        'Replace backgrounds professionally.',                'palette', 3),
+  ('cat-portrait',    'Портрет сайжруулах',      'Portrait Enhancement',    'Царай, арьсны өнгийг мэргэжлийн зургийн чанарт хүргэх.', 'Enhance face and skin to professional photo quality.', 'sparkles', 4);
 
 insert into public.presets (id, category_id, name_mn, name_en, output_ratio, steps, price_mnt, eta_min, warnings_mn, internal_prompt, example_output, example_inputs, options, required_uploads, sort_order) values
   ('fam-3p',       'cat-family',      '3 хүн',                '3 people',            '4:3',      3, 3900, '1–3',   array['Царайны детал сайн гарсан зураг оруулна уу.','AI үр дүн 100% ижил биш.','Фон жишээтэй яг адилгүй байж болно.'], 'Three people sitting close together on a sofa, medium-tight shot, natural light; preserve each person''s identity and age; high quality, 4:3.', '/examples/family-out.jpg',  array['/examples/person1.jpg','/examples/person2.jpg','/examples/person3.jpg'], '{"backgroundPresets":["Studio","Family Room","Outdoor","Minimal"],"styleIntensityDefault":30}', array['1-р хүн','2-р хүн','3-р хүн'], 1),

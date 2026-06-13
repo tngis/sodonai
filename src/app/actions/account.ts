@@ -46,13 +46,19 @@ export async function deleteAccount(): Promise<void> {
   const admin = createAdminClient();
 
   // Delete saved output files from storage (best-effort)
-  const { data: assets } = await supabase
-    .from("assets")
-    .select("storage_path")
-    .eq("user_id", user.id);
+  const [{ data: assets }, { data: profile }] = await Promise.all([
+    supabase.from("assets").select("storage_path").eq("user_id", user.id),
+    supabase.from("users").select("avatar_url").eq("id", user.id).single(),
+  ]);
 
-  if (assets && assets.length > 0) {
-    await removeFiles(OUTPUTS_BUCKET, assets.map((a) => a.storage_path));
+  const paths = (assets ?? []).map((a) => a.storage_path);
+  // An uploaded avatar (under {userId}/profile/) isn't an asset row, so add it
+  // explicitly. A gallery-derived avatar is already covered by the assets list.
+  if (profile?.avatar_url?.startsWith(`${user.id}/profile/`)) {
+    paths.push(profile.avatar_url);
+  }
+  if (paths.length > 0) {
+    await removeFiles(OUTPUTS_BUCKET, paths);
   }
 
   // Delete auth user — cascades to public.users, orders, payments, generations, assets

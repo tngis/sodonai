@@ -48,7 +48,7 @@ export function AddressForm({
       const id = initial
         ? (await updateAddress(initial.id, payload), initial.id)
         : await addAddress(payload);
-      toast.success(t("saveAddress") + " ✓");
+      toast.success(t("addressSaved"));
       onSaved(id);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
@@ -58,7 +58,7 @@ export function AddressForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl border border-border p-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl p-4 shadow-(--shadow-card)">
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("addrLabelName")}>
           <Input value={form.label} onChange={(e) => set("label", e.target.value)} placeholder="Гэр" />

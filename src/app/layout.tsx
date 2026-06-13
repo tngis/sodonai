@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { Header } from "@/components/layout/Header";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { Toaster } from "@/components/ui/sonner";
+import { GenerationNotifier } from "@/components/notifications/generation-notifier";
 
 // Body / UI — modern geometric sans with full Mongolian Cyrillic coverage.
 const manrope = Manrope({
@@ -61,8 +62,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#232323" },
+    { media: "(prefers-color-scheme: light)", color: "#e0e5ec" },
+    { media: "(prefers-color-scheme: dark)", color: "#24272c" },
   ],
 };
 
@@ -90,6 +91,7 @@ export default function RootLayout({
           </main>
           <MobileBottomNav />
           <Toaster />
+          <GenerationNotifier />
         </Providers>
       </body>
     </html>

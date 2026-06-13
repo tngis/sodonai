@@ -4,9 +4,25 @@ import { NextResponse, type NextRequest } from "next/server";
 // Browsing the catalog (/generate index, /category/*) is public so users can see
 // presets without logging in. Starting a generation (/generate/<presetId>) and all
 // account surfaces require auth.
-const PROTECTED_ROUTES = ["/gallery", "/orders", "/settings", "/output", "/progress", "/print", "/admin"];
+const PROTECTED_ROUTES = ["/gallery", "/orders", "/settings", "/output", "/progress", "/print", "/admin", "/wallet"];
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isProtected =
+    PROTECTED_ROUTES.some((r) => pathname.startsWith(r)) ||
+    // /generate is the public catalog; /generate/<presetId> starts a paid generation.
+    pathname.startsWith("/generate/");
+  const isAuthPage = pathname === "/auth";
+
+  // Public catalog routes don't use the user at all, so skip auth here. getUser()
+  // is a network round-trip to the Supabase auth server, and the matcher runs on
+  // every navigation + <Link> prefetch — making it the main per-route latency.
+  // Only protected routes and /auth need it. The browser Supabase client
+  // auto-refreshes the session, so cookies stay fresh while browsing public pages.
+  if (!isProtected && !isAuthPage) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -30,12 +46,6 @@ export async function proxy(request: NextRequest) {
 
   // Refresh session (do NOT use getSession — use getUser per @supabase/ssr docs)
   const { data: { user } } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-  const isProtected =
-    PROTECTED_ROUTES.some((r) => pathname.startsWith(r)) ||
-    // /generate is the public catalog; /generate/<presetId> starts a paid generation.
-    pathname.startsWith("/generate/");
 
   if (isProtected && !user) {
     const redirectUrl = request.nextUrl.clone();

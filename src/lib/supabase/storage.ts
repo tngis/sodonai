@@ -50,6 +50,29 @@ export async function uploadFile(
   return path;
 }
 
+// Upload a profile picture to the private outputs bucket. Stored under a
+// dedicated {userId}/profile/ prefix so it's presigned by the same owner check
+// as gallery outputs, and so avatar cleanup can target only profile-prefixed
+// objects (never a gallery image the user also set as their avatar).
+// The timestamp in the key makes each upload a fresh object — presigned URLs
+// already vary per request, but a new key also avoids any CDN edge caching.
+export async function storeAvatarFile(file: File, userId: string): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const path = `${userId}/profile/${Date.now()}.${ext}`;
+  const body = new Uint8Array(await file.arrayBuffer());
+
+  await r2().send(
+    new PutObjectCommand({
+      Bucket: OUTPUTS_BUCKET,
+      Key: path,
+      Body: body,
+      ContentType: file.type || "image/jpeg",
+      CacheControl: "max-age=3600",
+    })
+  );
+  return path;
+}
+
 // Store a generated output image to the private outputs bucket.
 // imageData can be a public URL (fetched and re-uploaded) or a base64 data URI.
 // Path: {userId}/{generationId}/{index}.{ext}

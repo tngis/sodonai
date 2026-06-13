@@ -37,7 +37,7 @@ export function AddressManager() {
     try {
       await deleteAddress(id);
       await load();
-      toast.success(t("deleteBtn") + " ✓");
+      toast.success(t("addressDeleted"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
     } finally {
@@ -70,7 +70,7 @@ export function AddressManager() {
             onCancel={() => setEditingId(null)}
           />
         ) : (
-          <div key={a.id} className="flex items-start gap-3 rounded-xl border border-border p-3">
+          <div key={a.id} className="flex items-start gap-3 rounded-xl p-3 shadow-(--shadow-card)">
             <MapPin size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-2 text-sm font-semibold">

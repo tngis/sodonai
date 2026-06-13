@@ -28,9 +28,33 @@ type CardCfg = {
 // Real sample results drift gently and lean toward the cursor (desktop pointer
 // only). x is responsive: cards spread wider as the cards themselves grow.
 const cards: CardCfg[] = [
-  { src: "/wedding.jpeg",   label: "Хурим",     rotate: -8, x: { base: -72, sm: -108, lg: -148 }, y: 8,   delay: 0,   depth: 0.9 },
-  { src: "/pregnancy.jpeg", label: "Жирэмсний", rotate: 6,  x: { base: 72,  sm: 108,  lg: 148 },  y: -16, delay: 0.4, depth: 0.75 },
-  { src: "/family.png",     label: "Гэр бүл",   rotate: -3, x: { base: 0,   sm: 0,    lg: 0 },    y: 36,  delay: 0.8, depth: 1.15 },
+  {
+    src: "/wedding.jpeg",
+    label: "Хурим",
+    rotate: -8,
+    x: { base: -72, sm: -108, lg: -148 },
+    y: 8,
+    delay: 0,
+    depth: 0.9,
+  },
+  {
+    src: "/pregnancy.jpeg",
+    label: "Жирэмсний",
+    rotate: 6,
+    x: { base: 72, sm: 108, lg: 148 },
+    y: -16,
+    delay: 0.4,
+    depth: 0.75,
+  },
+  {
+    src: "/family.png",
+    label: "Гэр бүл",
+    rotate: -3,
+    x: { base: 0, sm: 0, lg: 0 },
+    y: 36,
+    delay: 0.8,
+    depth: 1.15,
+  },
 ];
 
 // Tracks the active Tailwind-style breakpoint (sm = 640px, lg = 1024px).
@@ -38,7 +62,13 @@ function useBreakpoint(): Bp {
   const [bp, setBp] = useState<Bp>("base");
   useEffect(() => {
     const calc = () =>
-      setBp(window.innerWidth >= 1024 ? "lg" : window.innerWidth >= 640 ? "sm" : "base");
+      setBp(
+        window.innerWidth >= 1024
+          ? "lg"
+          : window.innerWidth >= 640
+            ? "sm"
+            : "base",
+      );
     calc();
     window.addEventListener("resize", calc);
     return () => window.removeEventListener("resize", calc);
@@ -85,16 +115,28 @@ export function HeroVisual() {
   return (
     <div
       ref={ref}
-      className="relative mx-auto mt-12 flex h-64 w-full max-w-md items-center justify-center sm:h-72 lg:h-80"
+      className="relative mx-auto mt-6 flex h-64 w-full max-w-md items-center justify-center sm:h-72 lg:h-80"
     >
       {/* Glow core */}
       <div
         aria-hidden
         className="absolute h-44 w-44 md:h-64 md:w-80 rounded-full blur-3xl"
-        style={{ background: "var(--brand)", opacity: 0.25, animation: reduce ? undefined : "pulse-glow 4s ease-in-out infinite" }}
+        style={{
+          background: "var(--brand)",
+          opacity: 0.25,
+          animation: reduce ? undefined : "pulse-glow 4s ease-in-out infinite",
+        }}
       />
       {cards.map((c, i) => (
-        <FloatingCard key={i} card={c} index={i} bp={bp} reduce={!!reduce} mx={spx} my={spy} />
+        <FloatingCard
+          key={i}
+          card={c}
+          index={i}
+          bp={bp}
+          reduce={!!reduce}
+          mx={spx}
+          my={spy}
+        />
       ))}
     </div>
   );
@@ -139,13 +181,22 @@ function FloatingCard({
           : {
               opacity: { duration: 0.5, delay: card.delay },
               scale: { duration: 0.5, delay: card.delay },
-              y: { duration: 4 + index, repeat: Infinity, ease: "easeInOut", delay: card.delay },
+              y: {
+                duration: 4 + index,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: card.delay,
+              },
             }
       }
     >
       <motion.div
         className="relative h-44 w-32 overflow-hidden rounded-2xl shadow-xl ring-1 ring-foreground/10 sm:h-52 sm:w-36 lg:h-64 lg:w-44"
-        style={reduce ? undefined : { x: tx, y: ty, rotateX, rotateY, transformPerspective: 700 }}
+        style={
+          reduce
+            ? undefined
+            : { x: tx, y: ty, rotateX, rotateY, transformPerspective: 700 }
+        }
       >
         <Image
           src={card.src}
@@ -155,7 +206,9 @@ function FloatingCard({
           className="object-cover"
         />
         <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2">
-          <span className="text-[11px] font-semibold text-white">{card.label}</span>
+          <span className="text-[11px] font-semibold text-white">
+            {card.label}
+          </span>
         </div>
       </motion.div>
     </motion.div>

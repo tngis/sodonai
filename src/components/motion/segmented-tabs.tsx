@@ -27,7 +27,7 @@ export function SegmentedTabs<T extends string>({
   className,
 }: SegmentedTabsProps<T>) {
   return (
-    <div className={cn("flex gap-1 rounded-xl bg-muted p-1", className)}>
+    <div className={cn("flex gap-1 rounded-xl bg-muted p-1 shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]", className)}>
       {tabs.map((tab) => {
         const active = tab.key === value;
         return (
@@ -42,7 +42,7 @@ export function SegmentedTabs<T extends string>({
             {active && (
               <motion.span
                 layoutId={layoutId}
-                className="absolute inset-0 rounded-lg bg-background shadow-sm"
+                className="absolute inset-0 rounded-lg bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)]"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
               />
             )}

@@ -5,10 +5,28 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Sun, Moon, Monitor, Globe, Lock, Bell, HelpCircle, FileText, ChevronRight, Trash2, Download, LogOut, Loader2, MapPin } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Globe,
+  Lock,
+  Bell,
+  HelpCircle,
+  FileText,
+  ChevronRight,
+  Trash2,
+  Download,
+  LogOut,
+  Loader2,
+  MapPin,
+  User,
+  Eye,
+} from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { exportUserData, deleteAccount } from "@/app/actions/account";
+import { setPublicSharing } from "@/app/actions/profile";
 import { AddressManager } from "@/components/settings/address-manager";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -26,23 +44,56 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Master switch for the public showcase. null = still loading (control hidden).
+  const [publicSharing, setPublicSharingState] = useState<boolean | null>(null);
+  const [savingSharing, setSavingSharing] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
+    // Local session read (no network); the users query is RLS-scoped to id.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const user = session?.user;
       if (!user) return;
-      const { data } = await supabase.from("users").select("name, phone").eq("id", user.id).single();
+      const { data } = await supabase
+        .from("users")
+        .select("name, phone, public_sharing_enabled")
+        .eq("id", user.id)
+        .single();
       setDisplayName(data?.name || user.email?.split("@")[0] || "Хэрэглэгч");
-      const sub = data?.phone && data.phone !== "" ? `+976 ${data.phone}` : (user.email ?? "");
+      const sub =
+        data?.phone && data.phone !== ""
+          ? `+976 ${data.phone}`
+          : (user.email ?? "");
       setDisplaySub(sub);
+      setPublicSharingState(data?.public_sharing_enabled ?? false);
     });
   }, []);
+
+  const handleToggleSharing = async () => {
+    if (publicSharing === null || savingSharing) return;
+    const next = !publicSharing;
+    setPublicSharingState(next); // optimistic
+    setSavingSharing(true);
+    try {
+      await setPublicSharing(next);
+      toast.success(
+        next ? "Бусдад харуулахыг асаалаа." : "Бусдад харуулахыг унтраалаа.",
+      );
+    } catch (err) {
+      setPublicSharingState(!next); // revert
+      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
+    } finally {
+      setSavingSharing(false);
+    }
+  };
 
   const handleExport = async () => {
     setExporting(true);
     try {
       const data = await exportUserData();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -81,29 +132,31 @@ export default function SettingsPage() {
   };
 
   const themes = [
-    { value: "light",  label: t("themeLight"),  icon: Sun },
-    { value: "dark",   label: t("themeDark"),   icon: Moon },
+    { value: "light", label: t("themeLight"), icon: Sun },
+    { value: "dark", label: t("themeDark"), icon: Moon },
     { value: "system", label: t("themeSystem"), icon: Monitor },
   ] as const;
 
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-8 text-2xl font-black tracking-tight md:text-3xl">{t("settings")}</h1>
+        <h1 className="mb-8 font-display text-2xl font-black tracking-tight text-embossed md:text-3xl">
+          {t("settings")}
+        </h1>
 
         {/* Language */}
         <section className="mb-6">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <Globe size={12} /> {t("language")}
           </div>
-          <div className="flex gap-1 rounded-xl border border-border p-1">
+          <div className="flex gap-1 rounded-xl p-1 shadow-(--shadow-recessed)">
             {(["mn", "en"] as const).map((l) => (
               <button
                 key={l}
                 onClick={() => setLang(l)}
                 className={cn(
                   "relative flex-1 rounded-lg py-2.5 text-sm font-bold transition-colors",
-                  lang === l ? "text-primary-foreground" : "hover:bg-muted"
+                  lang === l ? "text-primary-foreground" : "cursor-pointer",
                 )}
               >
                 {lang === l && (
@@ -113,7 +166,9 @@ export default function SettingsPage() {
                     transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   />
                 )}
-                <span className="relative z-10">{l === "mn" ? "Монгол" : "English"}</span>
+                <span className="relative z-10">
+                  {l === "mn" ? "Монгол" : "English"}
+                </span>
               </button>
             ))}
           </div>
@@ -131,8 +186,10 @@ export default function SettingsPage() {
                 whileTap={{ scale: 0.96 }}
                 onClick={() => setTheme(value)}
                 className={cn(
-                  "flex flex-col items-center gap-2 rounded-xl border p-3 text-sm font-medium transition-all",
-                  theme === value ? "border-primary bg-primary/10 text-primary glow-brand-sm" : "border-border hover:border-primary/30"
+                  "flex flex-col items-center gap-2 rounded-xl p-3 text-sm font-medium transition-all cursor-pointer",
+                  theme === value
+                    ? "bg-background text-primary shadow-(--shadow-pressed) glow-brand-sm"
+                    : "bg-background text-muted-foreground shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)",
                 )}
               >
                 <Icon size={20} /> {label}
@@ -143,26 +200,37 @@ export default function SettingsPage() {
 
         <Separator className="my-6" />
 
-        {/* Account */}
+        {/* Account → profile */}
         <section className="mb-6">
           <div className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             {t("account")}
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-            <div>
-              {displayName ? (
-                <>
-                  <p className="font-semibold">{displayName}</p>
-                  <p className="text-xs text-muted-foreground">{displaySub}</p>
-                </>
-              ) : (
-                <>
-                  <Skeleton className="mb-1.5 h-4 w-28" />
-                  <Skeleton className="h-3 w-40" />
-                </>
-              )}
+          <Link
+            href="/profile"
+            className="flex items-center justify-between rounded-xl px-4 py-3 shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating)"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-primary/30 to-primary/5 ring-1 ring-border">
+                <User size={18} />
+              </span>
+              <div>
+                {displayName ? (
+                  <>
+                    <p className="font-semibold">{displayName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {displaySub}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Skeleton className="mb-1.5 h-4 w-28" />
+                    <Skeleton className="h-3 w-40" />
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+            <ChevronRight size={16} className="text-muted-foreground" />
+          </Link>
         </section>
 
         {/* Delivery addresses */}
@@ -173,20 +241,63 @@ export default function SettingsPage() {
           <AddressManager />
         </section>
 
-        {/* Privacy */}
+        {/* Public showcase — master switch */}
         <section className="mb-6">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <Eye size={12} /> {t("publicSharing")}
+          </div>
+          <div className="flex items-start justify-between gap-4 rounded-xl p-4 shadow-(--shadow-card)">
+            <div>
+              <p className="font-semibold">{t("publicSharing")}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {t("publicSharingHelp")}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={publicSharing ?? false}
+              aria-label={t("publicSharing")}
+              onClick={handleToggleSharing}
+              disabled={publicSharing === null || savingSharing}
+              className={cn(
+                "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
+                publicSharing
+                  ? "bg-primary"
+                  : "bg-muted shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]",
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-4 w-4 transform rounded-full bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)] transition-transform",
+                  publicSharing ? "translate-x-6" : "translate-x-1",
+                )}
+              />
+            </button>
+          </div>
+        </section>
+
+        {/* Privacy */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <Lock size={12} /> {t("privacy")}
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-4">
             {/* Export */}
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="flex items-center justify-between rounded-xl border border-border px-4 py-3 text-left hover:bg-muted disabled:opacity-60"
+              className="flex items-center justify-between rounded-xl px-4 py-3 text-left shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating) active:shadow-(--shadow-pressed) disabled:opacity-60"
             >
               <div className="flex items-center gap-2">
-                {exporting ? <Loader2 size={16} className="animate-spin text-muted-foreground" /> : <Download size={16} className="text-muted-foreground" />}
+                {exporting ? (
+                  <Loader2
+                    size={16}
+                    className="animate-spin text-muted-foreground"
+                  />
+                ) : (
+                  <Download size={16} className="text-muted-foreground" />
+                )}
                 <span className="font-medium">{t("exportData")}</span>
               </div>
               <ChevronRight size={16} className="text-muted-foreground" />
@@ -196,7 +307,7 @@ export default function SettingsPage() {
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="flex items-center justify-between rounded-xl border border-destructive/30 px-4 py-3 text-left text-destructive hover:bg-destructive/5"
+                className="flex items-center justify-between rounded-xl px-4 py-3 text-left text-destructive shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating) active:shadow-(--shadow-pressed)"
               >
                 <div className="flex items-center gap-2">
                   <Trash2 size={16} />
@@ -205,10 +316,13 @@ export default function SettingsPage() {
                 <ChevronRight size={16} />
               </button>
             ) : (
-              <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
-                <p className="mb-1 font-semibold text-destructive">Бүртгэл бүрмөсөн устгах уу?</p>
+              <div className="rounded-xl bg-destructive/5 p-4 shadow-(--shadow-card)">
+                <p className="mb-1 font-semibold text-destructive">
+                  Бүртгэл бүрмөсөн устгах уу?
+                </p>
                 <p className="mb-4 text-xs text-muted-foreground">
-                  Таны бүх захиалга, зураг, төлбөрийн мэдээлэл устгагдах бөгөөд энэ үйлдлийг буцаах боломжгүй.
+                  Таны бүх захиалга, зураг, төлбөрийн мэдээлэл устгагдах бөгөөд
+                  энэ үйлдлийг буцаах боломжгүй.
                 </p>
                 <div className="flex gap-2">
                   <Button
@@ -218,7 +332,9 @@ export default function SettingsPage() {
                     onClick={handleDeleteConfirm}
                     disabled={deleting}
                   >
-                    {deleting ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                    {deleting ? (
+                      <Loader2 size={14} className="mr-1 animate-spin" />
+                    ) : null}
                     Тийм, устга
                   </Button>
                   <Button
@@ -241,8 +357,10 @@ export default function SettingsPage() {
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <Bell size={12} /> {t("notifications")}
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-            <span className="font-medium text-muted-foreground">Push мэдэгдэл — удахгүй</span>
+          <div className="flex items-center justify-between rounded-xl px-4 py-3 opacity-60 shadow-(--shadow-recessed)">
+            <span className="font-medium text-muted-foreground">
+              Push мэдэгдэл — удахгүй
+            </span>
           </div>
         </section>
 
@@ -250,16 +368,16 @@ export default function SettingsPage() {
 
         {/* Help & Legal */}
         <section className="mb-8">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-4">
             {[
-              { icon: HelpCircle, label: t("helpFaq"),        href: "/settings#help" },
-              { icon: FileText,   label: t("termsOfService"), href: "/terms" },
-              { icon: FileText,   label: t("privacyPolicy"),  href: "/privacy" },
+              { icon: HelpCircle, label: t("helpFaq"), href: "/help" },
+              { icon: FileText, label: t("termsOfService"), href: "/terms" },
+              { icon: FileText, label: t("privacyPolicy"), href: "/privacy" },
             ].map(({ icon: Icon, label, href }) => (
               <Link
                 key={label}
                 href={href}
-                className="flex items-center justify-between rounded-xl border border-border px-4 py-3 hover:bg-muted"
+                className="flex items-center justify-between rounded-xl px-4 py-3 shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating)"
               >
                 <div className="flex items-center gap-2">
                   <Icon size={16} className="text-muted-foreground" />
@@ -280,7 +398,9 @@ export default function SettingsPage() {
           <LogOut size={16} /> {t("signOut")}
         </Button>
 
-        <p className="mt-6 text-center text-xs text-muted-foreground">aistudio.mn v1.0.0</p>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          aistudio.mn v1.0.0
+        </p>
       </div>
     </div>
   );

@@ -36,82 +36,178 @@
     --color-popover: var(--popover);
     --color-card-foreground: var(--card-foreground);
     --color-card: var(--card);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+    /* Industrial radius scale — soft injection-molded curves.
+       sm 4 · md 8 · lg 16 · xl 24 · 2xl 30 · full 9999 (per design spec). */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-2xl: 30px;
+    --radius-3xl: 40px;
+    --radius-4xl: 9999px;
     --color-brand: var(--brand);
+    --color-panel: var(--panel);
 }
 
 :root {
-    /* Monochrome palette — Lynx White (#F7F7F7) → Young Night (#232323).
-     --brand drives glow/halo effects; in light mode it's the deep Young Night
-     so glows read as subtle dark shadows on the near-white page. */
-    --brand: #232323;
-    --background: oklch(0.976 0 0); /* #F7F7F7 Lynx White */
-    --foreground: oklch(0.256 0 0); /* #232323 Young Night */
-    --card: oklch(1 0 0); /* #FFFFFF — pops above the page */
-    --card-foreground: oklch(0.256 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.256 0 0);
-    --primary: oklch(0.256 0 0); /* #232323 — dark buttons */
-    --primary-foreground: oklch(0.976 0 0); /* #F7F7F7 on dark */
-    --secondary: oklch(0.92 0 0);
-    --secondary-foreground: oklch(0.256 0 0);
-    --muted: oklch(0.93 0 0);
-    --muted-foreground: oklch(
-        0.556 0 0
-    ); /* legible grey (Platinum Granite family) */
-    --accent: oklch(0.92 0 0); /* subtle grey for hover/focus surfaces */
-    --accent-foreground: oklch(0.256 0 0);
-    --destructive: oklch(0.577 0.245 27.325); /* errors stay red on purpose */
-    --border: oklch(0.87 0 0);
-    --input: oklch(0.87 0 0);
-    --ring: oklch(0.256 0 0);
-    --radius: 0.75rem;
-    --sidebar: oklch(0.95 0 0);
-    --sidebar-foreground: oklch(0.256 0 0);
-    --sidebar-primary: oklch(0.256 0 0);
-    --sidebar-primary-foreground: oklch(0.976 0 0);
-    --sidebar-accent: oklch(0.92 0 0);
-    --sidebar-accent-foreground: oklch(0.256 0 0);
-    --sidebar-border: oklch(0.87 0 0);
-    --sidebar-ring: oklch(0.256 0 0);
+    /* ── Industrial Skeuomorphism · LIGHT ────────────────────────────
+       Matte ABS-plastic chassis under diffuse workshop light. Light source
+       is top-left @ 45°: every raised surface gets a white highlight (top-
+       left) + grey shadow (bottom-right). Safety-orange is the only colour —
+       the "emergency stop button" of the palette, used sparingly.
+       --brand drives glows/LED bloom and is the accent so halos read orange. */
+    --brand: #ff4757;
+    --background: #e0e5ec; /* chassis (Level 0) */
+    --foreground: #2d3436; /* charcoal ink */
+    --panel: #f0f2f5; /* raised panel surface (Level +1, used sparingly) */
+    --card: #e0e5ec; /* cards are chassis-coloured; depth comes from shadow */
+    --card-foreground: #2d3436;
+    --popover: #f0f2f5; /* floating overlays sit on a lighter panel */
+    --popover-foreground: #2d3436;
+    --primary: #ff4757; /* safety orange — interactive / accent */
+    --primary-foreground: #ffffff;
+    --secondary: #e0e5ec; /* chassis keycap */
+    --secondary-foreground: #2d3436;
+    --muted: #d1d9e6; /* recessed wells (inputs, grooves) */
+    --muted-foreground: #4a5568; /* labels / metadata (WCAG AA on chassis) */
+    --accent: #d1d9e6; /* neutral hover surface (shadcn semantic, not brand) */
+    --accent-foreground: #2d3436;
+    --destructive: #e0344a; /* danger red, distinct from brand orange */
+    --border: #babecc; /* engraved seam = neumorphic shadow half */
+    --input: #d1d9e6;
+    --ring: #ff4757; /* orange LED focus ring */
+    --radius: 16px;
+
+    /* Neumorphic light-source pair + relief shadows (the core signature). */
+    --neu-light: #ffffff; /* highlight half */
+    --neu-dark: #babecc; /* shadow half */
+    --shadow-card: 8px 4px 16px #babecc, -4px -4px 8px #ffffff;
+    --shadow-floating:
+        12px 12px 24px #babecc, -12px -12px 24px #ffffff,
+        inset 1px 1px 0 rgba(255, 255, 255, 0.5);
+    --shadow-pressed: inset 6px 6px 12px #babecc, inset -6px -6px 12px #ffffff;
+    --shadow-recessed: inset 4px 4px 8px #babecc, inset -4px -4px 8px #ffffff;
+    --shadow-glow: 0 0 10px 2px rgba(255, 71, 87, 0.6);
+
+    --sidebar: #e0e5ec;
+    --sidebar-foreground: #2d3436;
+    --sidebar-primary: #ff4757;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #d1d9e6;
+    --sidebar-accent-foreground: #2d3436;
+    --sidebar-border: #babecc;
+    --sidebar-ring: #ff4757;
+
+    /* ── Neumorphic preset card (light: soft porcelain) ──────
+     Same geometry as dark, inverted values: white surfaces,
+     shadows carry the depth, stroke is bright top → soft dark
+     bottom so the card reads embossed on the Lynx White page. */
+    --neu-surface-hi: #ffffff;
+    --neu-surface: #f1f1f2;
+    --neu-panel: rgba(255, 255, 255, 0.88);
+    --neu-border: #e3e3e5;
+    --neu-stroke: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.95),
+        rgba(35, 35, 35, 0.14)
+    );
+    --neu-stroke-hover: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 1),
+        rgba(35, 35, 35, 0.26)
+    );
+    --neu-card-shadow:
+        0 12px 28px -14px rgba(35, 35, 35, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    --neu-extrude-bg: linear-gradient(180deg, #ffffff, #ededee);
+    --neu-extrude-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 1), 0 4px 10px rgba(35, 35, 35, 0.14);
+    --neu-text-hi: #232323;
+    --neu-text: #4c4c4e;
+    --neu-muted: #6e6e70;
+    --neu-beam: rgba(35, 35, 35, 0.3);
+    --neu-glow: rgba(35, 35, 35, 0.18);
+    --neu-ring: rgba(35, 35, 35, 0.35);
 }
 
 .dark {
-    /* In dark mode --brand is Lynx White, so glows become soft white halos.
-     Charcoal stack: Young Night bg → Carbon Fiber cards → Bauhaus surfaces. */
-    --brand: #f7f7f7;
-    --background: oklch(0.256 0 0); /* #232323 Young Night */
-    --foreground: oklch(0.976 0 0); /* #F7F7F7 Lynx White */
-    --card: oklch(0.301 0 0); /* #2E2E2E Carbon Fiber */
-    --card-foreground: oklch(0.976 0 0);
-    --popover: oklch(0.301 0 0);
-    --popover-foreground: oklch(0.976 0 0);
-    --primary: oklch(0.976 0 0); /* #F7F7F7 — light buttons */
-    --primary-foreground: oklch(0.256 0 0); /* #232323 on light */
-    --secondary: oklch(0.371 0 0); /* #404040 Bauhaus */
-    --secondary-foreground: oklch(0.976 0 0);
-    --muted: oklch(0.371 0 0);
-    --muted-foreground: oklch(0.78 0 0); /* legible grey on charcoal */
-    --accent: oklch(0.371 0 0); /* #404040 hover/focus surface */
-    --accent-foreground: oklch(0.976 0 0);
-    --destructive: oklch(0.704 0.191 22.216); /* errors stay red on purpose */
-    --border: oklch(1 0 0 / 12%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.976 0 0);
-    --sidebar: oklch(0.301 0 0);
-    --sidebar-foreground: oklch(0.976 0 0);
-    --sidebar-primary: oklch(0.976 0 0);
-    --sidebar-primary-foreground: oklch(0.256 0 0);
-    --sidebar-accent: oklch(0.371 0 0);
-    --sidebar-accent-foreground: oklch(0.976 0 0);
-    --sidebar-border: oklch(1 0 0 / 12%);
-    --sidebar-ring: oklch(0.976 0 0);
+    /* ── Industrial Skeuomorphism · DARK ─────────────────────────────
+       Anodised charcoal/graphite metal under low workshop light. The
+       neumorphic pair becomes (shadow = darker than chassis) + (highlight =
+       a SLIGHTLY LIGHTER GREY, never #fff — white highlights are the #1 way
+       neumorphism breaks in dark mode). Safety-orange is unchanged, so brand
+       identity carries across themes and LED glows read even better here. */
+    --brand: #ff4757;
+    --background: #24272c; /* dark chassis (charcoal/graphite) */
+    --foreground: #e6e9ed; /* off-white ink */
+    --panel: #2c3036; /* raised panel, +1 level */
+    --card: #24272c; /* cards = chassis; depth via shadow */
+    --card-foreground: #e6e9ed;
+    --popover: #2c3036; /* floating overlays on a lighter panel */
+    --popover-foreground: #e6e9ed;
+    --primary: #ff4757; /* unchanged brand accent */
+    --primary-foreground: #ffffff;
+    --secondary: #2c3036;
+    --secondary-foreground: #e6e9ed;
+    --muted: #1b1e22; /* recessed / sunken wells */
+    --muted-foreground: #99a2ad; /* AA-compliant on #24272c */
+    --accent: #2c3036; /* neutral hover surface */
+    --accent-foreground: #e6e9ed;
+    --destructive: #ff5a6a;
+    --border: #16181c; /* engraved seam (shadow half) */
+    --input: #1b1e22;
+    --ring: #ff4757;
+
+    /* Neumorphic pair — highlight is a lighter GREY (#34393f), NOT white. */
+    --neu-light: #34393f; /* highlight half */
+    --neu-dark: #16181c; /* shadow half */
+    --shadow-card: 8px 8px 16px #16181c, -4px -4px 16px #34393f;
+    --shadow-floating:
+        12px 12px 24px #16181c, -12px -12px 24px #34393f,
+        inset 1px 1px 0 rgba(255, 255, 255, 0.06);
+    --shadow-pressed: inset 6px 6px 12px #16181c, inset -6px -6px 12px #34393f;
+    --shadow-recessed: inset 4px 4px 8px #16181c, inset -4px -4px 8px #34393f;
+    --shadow-glow: 0 0 12px 2px rgba(255, 71, 87, 0.55);
+
+    --sidebar: #24272c;
+    --sidebar-foreground: #e6e9ed;
+    --sidebar-primary: #ff4757;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #2c3036;
+    --sidebar-accent-foreground: #e6e9ed;
+    --sidebar-border: #16181c;
+    --sidebar-ring: #ff4757;
+
+    /* ── Neumorphic preset card (dark: machined charcoal) ────
+     #2C2C2E surface / #343436 elevated / #49494B borders /
+     #ACACAE highlights. Shadows kept soft — heavy black halos
+     read as smudges on an already-dark page. */
+    --neu-surface-hi: #343436;
+    --neu-surface: #2c2c2e;
+    --neu-panel: rgba(52, 52, 54, 0.92);
+    --neu-border: #49494b;
+    --neu-stroke: linear-gradient(
+        180deg,
+        rgba(172, 172, 174, 0.35),
+        rgba(73, 73, 75, 0.05)
+    );
+    --neu-stroke-hover: linear-gradient(
+        180deg,
+        rgba(172, 172, 174, 0.5),
+        rgba(73, 73, 75, 0.05)
+    );
+    --neu-card-shadow:
+        0 12px 24px -14px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --neu-extrude-bg: linear-gradient(180deg, #414143, #343436);
+    --neu-extrude-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 10px rgba(0, 0, 0, 0.35);
+    --neu-text-hi: #e2e2e4;
+    --neu-text: #acacae;
+    --neu-muted: #8b8b8d;
+    --neu-beam: rgba(172, 172, 174, 0.5);
+    --neu-glow: rgba(172, 172, 174, 0.25);
+    --neu-ring: rgba(172, 172, 174, 0.4);
 }
 
 @layer base {
@@ -139,9 +235,17 @@
         /* Roughness knobs: opacity = how present the grain is; the filter's
        baseFrequency = speckle size (lower → coarser); feComponentTransfer
        slope = grit/contrast (higher → harsher black/white specks). */
-        opacity: 0.1;
+        /* Matte-plastic micro-texture. Light: overlay blend reads as fine grit
+           on the chassis. Dark: softened (see .dark override) so it textures
+           without crushing the charcoal panels. */
+        opacity: 0.4;
+        mix-blend-mode: overlay;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='gn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncG type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncB type='linear' slope='1.8' intercept='-0.4'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23gn)'/%3E%3C/svg%3E");
         background-size: 256px 256px;
+    }
+    .dark body::after {
+        opacity: 0.22;
+        mix-blend-mode: soft-light;
     }
     /* Display face for all headings + anything using font-display/heading */
     h1,
@@ -160,8 +264,31 @@
         padding-bottom: env(safe-area-inset-bottom);
     }
 
+    /* ── Industrial Skeuomorphism helpers ───────────────────── */
+    /* Embossed/engraved text. Light: white highlight under the glyph (raised).
+       Dark: reversed light relationship — faint top highlight + soft dark
+       drop so engraving still reads correctly. Theme-aware via --neu-light. */
+    .text-embossed {
+        text-shadow: 0 1px 0 var(--neu-light);
+    }
+    .dark .text-embossed {
+        text-shadow:
+            0 -1px 0 rgba(255, 255, 255, 0.06),
+            0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    /* "Stamped label" — uppercase wide-tracked mono.
+       LATIN / NUMERIC ONLY: Geist Mono ships no Cyrillic subset, so never
+       apply this to Mongolian copy (it would fall back / tofu). */
+    .label-stamp {
+        font-family: var(--font-geist-mono), ui-monospace, monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+    }
+
     .brand-gradient {
-        background: linear-gradient(135deg, #404040 0%, #232323 100%);
+        background: linear-gradient(135deg, #ff6b75 0%, #ff4757 100%);
     }
     .scrollbar-hide {
         -ms-overflow-style: none;
@@ -169,6 +296,68 @@
     }
     .scrollbar-hide::-webkit-scrollbar {
         display: none;
+    }
+
+    /* Edge-fade for horizontal scroll tracks. Neumorphic cards cast outer
+       shadows (--shadow-card reaches ~24px); a clipping container chops them
+       into hard dark rectangles — most visible on the dark chassis. Pair this
+       with overflow-x-auto (never overflow-hidden), internal padding ≥ the
+       shadow reach, gap-5/6 between cards, and bg-background so any residual
+       clipped shadow blends into the chassis instead of reading as a hard line.
+       The mask dissolves items at the left/right boundary. --fade-x tunes the
+       fade width (defaults to 24px). */
+    .mask-fade-x {
+        --fade-x: 24px;
+        -webkit-mask-image: linear-gradient(
+            to right,
+            transparent,
+            #000 var(--fade-x),
+            #000 calc(100% - var(--fade-x)),
+            transparent
+        );
+        mask-image: linear-gradient(
+            to right,
+            transparent,
+            #000 var(--fade-x),
+            #000 calc(100% - var(--fade-x)),
+            transparent
+        );
+    }
+
+    /* Opaque chassis surface carrying the SAME grain as the page-level overlay
+       (body::after). Use ONLY for genuinely portaled / floating layers that
+       can't let the fixed page grain show through (dialogs, sheets, popovers).
+       In-flow layers (carousels, cards, sections) must stay transparent so the
+       real page grain shows — don't reach for this there. Mirrors body::after
+       exactly: same SVG fractal noise, opacity, and blend (overlay light /
+       soft-light dark). isolation + a z-index:-1 pseudo paints the grain above
+       the element's chassis fill but below its content, without forcing any
+       position on children (so absolutely-positioned children still work).
+       The host must establish its own positioning context (it's `fixed`,
+       `absolute`, or carries `relative`) so the inset-0 grain pseudo sizes to
+       it — we deliberately don't set `position` here, since hard-coding
+       `position: relative` would override `fixed`/`absolute` positioning
+       utilities on the same element (e.g. a centred dialog dropping to the
+       bottom of the page). */
+    .chassis-surface {
+        isolation: isolate;
+        background-color: var(--background);
+    }
+    .chassis-surface::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        border-radius: inherit;
+        opacity: 0.4;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='gn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncG type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncB type='linear' slope='1.8' intercept='-0.4'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23gn)'/%3E%3C/svg%3E");
+        background-size: 256px 256px;
+    }
+    .dark .chassis-surface::after {
+        opacity: 0.22;
+        mix-blend-mode: soft-light;
     }
 
     /* ── Brand glow ─────────────────────────────────────────── */
@@ -242,6 +431,71 @@
             );
         background-size: 200% 200%;
         animation: mesh-shift 18s ease-in-out infinite;
+    }
+
+    /* ── Neumorphic preset card ──────────────────────────────────
+     Themed via the --neu-* vars above (:root = porcelain light,
+     .dark = machined charcoal). The 1px gradient stroke needs two
+     background layers clipped to padding-box vs border-box, which
+     Tailwind can't express inline. */
+    .neu-card {
+        position: relative;
+        border: 1px solid transparent;
+        border-radius: 24px;
+        background-image:
+            radial-gradient(
+                120% 100% at 50% 0%,
+                var(--neu-surface-hi) 0%,
+                var(--neu-surface) 60%
+            ),
+            var(--neu-stroke);
+        background-origin: border-box;
+        background-clip: padding-box, border-box;
+        box-shadow: var(--neu-card-shadow);
+        transition: transform 0.25s ease;
+    }
+    /* Gradient strokes can't interpolate, so the brighter hover ring
+     is a masked overlay that fades in. Needs overflow-visible on the
+     card (it sits 1px outside the padding box). */
+    .neu-card::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        padding: 1px;
+        background: var(--neu-stroke-hover);
+        -webkit-mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+        mask:
+            linear-gradient(#fff 0 0) content-box,
+            linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+        pointer-events: none;
+    }
+    .neu-card:hover,
+    .group:focus-visible > .neu-card {
+        transform: translateY(-2px);
+    }
+    .neu-card:hover::before,
+    .group:focus-visible > .neu-card::before {
+        opacity: 1;
+    }
+    /* Extruded layer — icon tiles, buttons. Nest two for the stepped,
+     machined look. */
+    .neu-extrude {
+        background: var(--neu-extrude-bg);
+        border: 1px solid var(--neu-border);
+        box-shadow: var(--neu-extrude-shadow);
+    }
+    .neu-tile {
+        border-radius: 30%;
+    }
+    .neu-icon-glow {
+        filter: drop-shadow(0 0 6px var(--neu-glow));
     }
 
     /* ── Shimmer (branded skeleton) ─────────────────────────── */
@@ -326,4 +580,53 @@
     .mesh-bg {
         animation: none;
     }
+}
+
+/* ── Toast (Sonner) — neumorphic floating panel ──────────────────────
+   Sonner injects its base CSS at runtime UNLAYERED, which outranks
+   Tailwind's @layer utilities — a `shadow-(--shadow-floating)` class on
+   the toast would lose to sonner's hardcoded box-shadow. So the skin
+   lives here as unlayered rules, with a `.cn-toast` bump so the selector
+   `[data-sonner-toast].cn-toast` (0,2,0) beats sonner's own
+   `[data-sonner-toast]` (0,1,0). Mirrors the floating-overlay language:
+   popover surface, --shadow-floating relief, 16px radius, hair-line seam,
+   frosted blur, and a per-type status rail down the left edge. */
+[data-sonner-toast].cn-toast {
+    --toast-rail: var(--muted-foreground);
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-radius: var(--radius);
+    background: color-mix(in oklab, var(--popover) 86%, transparent);
+    color: var(--popover-foreground);
+    border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+    box-shadow:
+        inset 3px 0 0 0 var(--toast-rail),
+        var(--shadow-floating);
+    -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    backdrop-filter: blur(16px) saturate(1.25);
+    font-family: var(--font-manrope), system-ui, sans-serif;
+}
+[data-sonner-toast].cn-toast[data-type="success"] {
+    --toast-rail: #10b981;
+}
+[data-sonner-toast].cn-toast[data-type="error"] {
+    --toast-rail: var(--destructive);
+}
+[data-sonner-toast].cn-toast[data-type="warning"] {
+    --toast-rail: #f59e0b;
+}
+[data-sonner-toast].cn-toast[data-type="info"] {
+    --toast-rail: var(--brand);
+}
+[data-sonner-toast].cn-toast [data-icon] svg {
+    color: var(--toast-rail);
+}
+[data-sonner-toast].cn-toast [data-title] {
+    font-family:
+        var(--font-montserrat), var(--font-manrope), system-ui, sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+[data-sonner-toast].cn-toast [data-description] {
+    color: var(--muted-foreground);
 }

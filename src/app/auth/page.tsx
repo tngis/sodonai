@@ -3,7 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Phone, Shield, Mail, Eye, EyeOff, CheckCircle2, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  Phone,
+  Shield,
+  Mail,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  Sparkles,
+} from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,10 +33,29 @@ function CountdownRing({ value, total }: { value: number; total: number }) {
   const pct = Math.max(0, Math.min(1, value / total));
   return (
     <span className="relative inline-flex h-9 w-9 items-center justify-center">
-      <svg className="absolute -rotate-90" width={36} height={36} viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r={r} fill="none" stroke="currentColor" strokeWidth="2.5" className="text-border" />
+      <svg
+        className="absolute -rotate-90"
+        width={36}
+        height={36}
+        viewBox="0 0 36 36"
+      >
+        <circle
+          cx="18"
+          cy="18"
+          r={r}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          className="text-border"
+        />
         <motion.circle
-          cx="18" cy="18" r={r} fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinecap="round"
+          cx="18"
+          cy="18"
+          r={r}
+          fill="none"
+          stroke="var(--brand)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
           strokeDasharray={c}
           animate={{ strokeDashoffset: c * (1 - pct) }}
           transition={{ duration: 1, ease: "linear" }}
@@ -124,11 +152,17 @@ export default function AuthPage() {
 
   // Handle paste on OTP
   const handleOtpPaste = (e: React.ClipboardEvent) => {
-    const digits = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6).split("");
+    const digits = e.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, 6)
+      .split("");
     if (digits.length === 0) return;
     e.preventDefault();
     const next = [...otp];
-    digits.forEach((d, i) => { next[i] = d; });
+    digits.forEach((d, i) => {
+      next[i] = d;
+    });
     setOtp(next);
     const focusIdx = Math.min(digits.length, 5);
     otpRefs.current[focusIdx]?.focus();
@@ -162,7 +196,10 @@ export default function AuthPage() {
   const handleEmailSignIn = async () => {
     if (!email || !password) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     setLoading(false);
     if (error) {
       toast.error(error.message);
@@ -202,13 +239,12 @@ export default function AuthPage() {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
-
         {/* Login-required notice — shown when redirected from a gated action (e.g. selecting a preset) */}
         {loginRequired && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-start gap-2.5 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm"
+            className="mb-6 flex items-start gap-2.5 rounded-xl bg-primary/10 px-4 py-3 text-sm shadow---shadow-card)"
           >
             <Sparkles size={16} className="mt-0.5 shrink-0 text-primary" />
             <span className="font-medium">{t("loginRequired")}</span>
@@ -216,7 +252,7 @@ export default function AuthPage() {
         )}
 
         {/* Back button */}
-        {(isPhoneBack) && (
+        {isPhoneBack && (
           <button
             onClick={() => {
               if (phoneStep === "otp") setPhoneStep("phone");
@@ -243,14 +279,14 @@ export default function AuthPage() {
 
         {/* Method toggle — only show on first step */}
         {(method === "phone" ? phoneStep === "phone" : true) && (
-          <div className="mb-6 flex gap-1 rounded-xl bg-muted p-1">
+          <div className="mb-6 flex gap-1 rounded-xl bg-muted p-1 shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]">
             <button
               onClick={() => switchMethod("phone")}
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-colors",
                 method === "phone"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-background text-foreground shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)]"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Phone size={14} /> Утас
@@ -260,8 +296,8 @@ export default function AuthPage() {
               className={cn(
                 "flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-colors",
                 method === "email"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-background text-foreground shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)]"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Mail size={14} /> Имэйл
@@ -286,7 +322,9 @@ export default function AuthPage() {
                       inputMode="numeric"
                       placeholder={t("phonePlaceholder")}
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                      onChange={(e) =>
+                        setPhone(e.target.value.replace(/\D/g, "").slice(0, 8))
+                      }
                       onKeyDown={(e) => e.key === "Enter" && handleSendOtp()}
                     />
                   </div>
@@ -312,11 +350,16 @@ export default function AuthPage() {
                   </p>
                 </div>
 
-                <div className="flex justify-center gap-2" onPaste={handleOtpPaste}>
+                <div
+                  className="flex justify-center gap-2"
+                  onPaste={handleOtpPaste}
+                >
                   {otp.map((digit, i) => (
                     <motion.input
                       key={i}
-                      ref={(el) => { otpRefs.current[i] = el; }}
+                      ref={(el) => {
+                        otpRefs.current[i] = el;
+                      }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
@@ -324,10 +367,16 @@ export default function AuthPage() {
                       onChange={(e) => handleOtpChange(i, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(i, e)}
                       animate={{ scale: digit ? 1.05 : 1 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 25,
+                      }}
                       className={cn(
-                        "h-12 w-10 rounded-lg border bg-background text-center text-lg font-bold outline-none transition-colors focus:ring-2 focus:ring-primary/20",
-                        digit ? "border-primary glow-brand-sm" : "border-input focus:border-primary"
+                        "h-12 w-10 rounded-lg bg-muted text-center text-lg font-bold font-mono outline-none transition-all",
+                        digit
+                          ? "text-primary shadow-(--shadow-pressed) glow-brand-sm"
+                          : "shadow-(--shadow-recessed) focus:shadow-[var(--shadow-recessed),0_0_0_2px_var(--ring)]",
                       )}
                     />
                   ))}
@@ -355,7 +404,10 @@ export default function AuthPage() {
                     </>
                   ) : (
                     <button
-                      onClick={() => { setCountdown(60); toast.success(t("otpSent")); }}
+                      onClick={() => {
+                        setCountdown(60);
+                        toast.success(t("otpSent"));
+                      }}
                       className="font-semibold text-primary hover:underline"
                     >
                       {t("resendCode")}
@@ -386,7 +438,9 @@ export default function AuthPage() {
               <div className="flex flex-col gap-5">
                 <div>
                   <h2 className="text-xl font-bold">Тавтай морил!</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Нэрээ оруулна уу.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Нэрээ оруулна уу.
+                  </p>
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="name">{t("nameLabel")}</Label>
@@ -422,7 +476,7 @@ export default function AuthPage() {
                   "pb-2.5 text-sm font-semibold transition-colors",
                   emailStep === "signin"
                     ? "border-b-2 border-primary text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 Нэвтрэх
@@ -433,7 +487,7 @@ export default function AuthPage() {
                   "pb-2.5 text-sm font-semibold transition-colors",
                   emailStep === "signup"
                     ? "border-b-2 border-primary text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 Бүртгүүлэх
@@ -466,14 +520,16 @@ export default function AuthPage() {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleEmailSignIn()}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleEmailSignIn()
+                      }
                       autoComplete="current-password"
                       className="pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md bg-background text-muted-foreground shadow-(--shadow-card) transition-all hover:text-foreground active:shadow-(--shadow-pressed)"
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -544,7 +600,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md bg-background text-muted-foreground shadow-(--shadow-card) transition-all hover:text-foreground active:shadow-(--shadow-pressed)"
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -560,29 +616,41 @@ export default function AuthPage() {
                       placeholder="Нууц үгийг дахин оруулна уу"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleEmailSignUp()}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleEmailSignUp()
+                      }
                       autoComplete="new-password"
                       className={cn(
                         "pr-10",
-                        confirmPassword && confirmPassword !== password && "border-destructive focus-visible:ring-destructive"
+                        confirmPassword &&
+                          confirmPassword !== password &&
+                          "border-destructive focus-visible:ring-destructive",
                       )}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirm((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md bg-background text-muted-foreground shadow-(--shadow-card) transition-all hover:text-foreground active:shadow-(--shadow-pressed)"
                     >
                       {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                   {confirmPassword && confirmPassword !== password && (
-                    <p className="text-xs text-destructive">Нууц үг таарахгүй байна.</p>
+                    <p className="text-xs text-destructive">
+                      Нууц үг таарахгүй байна.
+                    </p>
                   )}
                 </div>
 
                 <Button
                   onClick={handleEmailSignUp}
-                  disabled={!email || !password || !emailName.trim() || password !== confirmPassword || loading}
+                  disabled={
+                    !email ||
+                    !password ||
+                    !emailName.trim() ||
+                    password !== confirmPassword ||
+                    loading
+                  }
                   className="w-full rounded-full font-bold"
                   size="lg"
                 >
@@ -590,7 +658,7 @@ export default function AuthPage() {
                 </Button>
 
                 <p className="text-center text-sm text-muted-foreground">
-                  Бүртгэлтэй юу? {" "}
+                  Бүртгэлтэй юу?{" "}
                   <button
                     onClick={() => setEmailStep("signin")}
                     className="font-semibold text-primary hover:underline"
@@ -602,7 +670,6 @@ export default function AuthPage() {
             )}
           </>
         )}
-
       </div>
     </div>
   );
