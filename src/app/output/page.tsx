@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Download, Frame, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Frame, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loader2, ChevronLeft, ChevronRight, UserRound, Eye, EyeOff, Check } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { reportGeneration } from "@/app/actions/generation";
 import { getOutputUrls } from "@/app/actions/storage";
+import { setAvatarFromGallery } from "@/app/actions/profile";
+import { setGenerationVisibility } from "@/app/actions/showcase";
 import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
@@ -30,9 +32,16 @@ function OutputContent() {
 
   const [gen, setGen] = useState<GenerationResult | null>(null);
   const [signedImageUrls, setSignedImageUrls] = useState<string[]>([]);
+  // Storage paths aligned 1:1 with signedImageUrls (null for legacy public URLs).
+  // Needed so "Set as profile picture" knows which outputs object each image is.
+  const [resultPaths, setResultPaths] = useState<(string | null)[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [celebrate, setCelebrate] = useState(false);
+  // Public-showcase visibility for this generation. null = not the owner / not
+  // saved as an asset, so the control is hidden. Read from assets.is_private.
+  const [shared, setShared] = useState<boolean | null>(null);
+  const [savingShare, setSavingShare] = useState(false);
 
   const load = useCallback(async () => {
     if (!generationId) { setLoading(false); return; }
@@ -48,18 +57,42 @@ function OutputContent() {
     const typed = data as unknown as GenerationResult;
     setGen(typed);
 
+    // This generation's showcase visibility. Owner-read RLS means a row comes
+    // back only when the caller owns the generation's gallery assets.
+    const { data: assetRows } = await supabase
+      .from("assets")
+      .select("is_private")
+      .eq("generation_id", generationId)
+      .limit(1);
+    if (assetRows?.length) {
+      setShared(!(assetRows[0] as { is_private: boolean }).is_private);
+    }
+
     // Convert storage paths to signed URLs so <Image> can load private files.
     // Storage paths start without "http"; public URLs (legacy mock) pass through.
+    // Order is preserved and the storage path is kept aligned with each URL so a
+    // single image can be set as the profile picture.
     if (typed.result_urls?.length) {
-      const storagePaths = typed.result_urls.filter((u) => !u.startsWith("http"));
-      const publicUrls = typed.result_urls.filter((u) => u.startsWith("http"));
+      const urls = typed.result_urls;
+      const storagePaths = urls.filter((u) => !u.startsWith("http"));
+      const resolved = storagePaths.length ? await getOutputUrls(storagePaths) : [];
 
-      if (storagePaths.length > 0) {
-        const resolved = (await getOutputUrls(storagePaths)).filter(Boolean);
-        setSignedImageUrls([...publicUrls, ...resolved]);
-      } else {
-        setSignedImageUrls(publicUrls);
+      const signed: string[] = [];
+      const paths: (string | null)[] = [];
+      let si = 0;
+      for (const u of urls) {
+        if (u.startsWith("http")) {
+          signed.push(u);
+          paths.push(null);
+        } else {
+          const url = resolved[si];
+          const path = storagePaths[si];
+          si++;
+          if (url) { signed.push(url); paths.push(path); }
+        }
       }
+      setSignedImageUrls(signed);
+      setResultPaths(paths);
     }
 
     setLoading(false);
@@ -119,8 +152,38 @@ function OutputContent() {
     toast.info(t("report") + " — баярлалаа.");
   };
 
+  const [settingAvatar, setSettingAvatar] = useState(false);
+  const handleSetProfile = async (path: string | null) => {
+    if (!path || settingAvatar) return;
+    setSettingAvatar(true);
+    try {
+      await setAvatarFromGallery(path);
+      toast.success(t("avatarUpdated"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
+    } finally {
+      setSettingAvatar(false);
+    }
+  };
+
   const handleRegenerate = () => {
     router.push("/generate");
+  };
+
+  const handleToggleShare = async () => {
+    if (shared === null || savingShare || !generationId) return;
+    const next = !shared;
+    setShared(next); // optimistic
+    setSavingShare(true);
+    try {
+      await setGenerationVisibility(generationId, next);
+      toast.success(next ? "Бусдад харагдахаар тохирлоо." : "Нууцлав.");
+    } catch (err) {
+      setShared(!next); // revert
+      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
+    } finally {
+      setSavingShare(false);
+    }
   };
 
   // ── Loading ───────────────────────────────────────────────
@@ -191,8 +254,7 @@ function OutputContent() {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 300, damping: 24 }}
-          className="glow-brand-sm mb-6 flex items-center gap-3 rounded-xl p-4"
-          style={{ background: "color-mix(in oklab, var(--foreground) 6%, transparent)", border: "1px solid color-mix(in oklab, var(--foreground) 16%, transparent)" }}
+          className="mb-6 flex items-center gap-3 rounded-xl p-4 shadow-(--shadow-card) glow-brand-sm"
         >
           <motion.div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
@@ -201,7 +263,7 @@ function OutputContent() {
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
           >
-            <span className="text-sm font-black text-primary-foreground">✓</span>
+            <Check size={16} strokeWidth={3} className="text-primary-foreground" />
           </motion.div>
           <p className="text-sm font-medium">{t("outputTitle")}</p>
         </motion.div>
@@ -230,18 +292,28 @@ function OutputContent() {
                 <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
                   <button
                     onClick={() => setPreviewIdx(i)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label="Томруулах"
                   >
                     <ZoomIn size={16} />
                   </button>
                   <button
                     onClick={() => handleDownload(url, i)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-black hover:bg-white"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label={t("download")}
                   >
                     <Download size={16} />
                   </button>
+                  {resultPaths[i] && (
+                    <button
+                      onClick={() => handleSetProfile(resultPaths[i])}
+                      disabled={settingAvatar}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed) disabled:opacity-60"
+                      aria-label={t("setAsProfilePicture")}
+                    >
+                      <UserRound size={16} />
+                    </button>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -254,7 +326,7 @@ function OutputContent() {
             </Button>
             <Button
               render={<Link href={`/print?gen=${generationId}`} />}
-              className="w-full justify-center rounded-full bg-primary font-bold text-black"
+              className="w-full justify-center rounded-full bg-primary font-bold text-primary-foreground"
               variant="shadow"
             >
               <Frame size={16} className="mr-2" /> {t("orderPrint")}
@@ -266,6 +338,51 @@ function OutputContent() {
             >
               <Share2 size={16} className="mr-2" /> {t("share")}
             </Button>
+
+            {/* Showcase visibility — only for the owner (shared !== null). */}
+            {shared !== null && (
+              <div className="flex items-start justify-between gap-3 rounded-xl p-4 shadow-(--shadow-card)">
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-semibold">
+                    {shared ? <Eye size={14} className="text-primary" /> : <EyeOff size={14} className="text-muted-foreground" />}
+                    {t("shareToggle")}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t("shareToggleHelp")}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={shared}
+                  aria-label={t("shareToggle")}
+                  onClick={handleToggleShare}
+                  disabled={savingShare}
+                  className={cn(
+                    "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
+                    shared
+                      ? "bg-primary"
+                      : "bg-muted shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)] transition-transform",
+                      shared ? "translate-x-6" : "translate-x-1"
+                    )}
+                  />
+                </button>
+              </div>
+            )}
+            {resultPaths.some((p) => p) && (
+              <Button
+                variant="outline"
+                className="w-full justify-center rounded-full"
+                onClick={() => handleSetProfile(resultPaths.find((p) => p) ?? null)}
+                disabled={settingAvatar}
+              >
+                {settingAvatar ? <Loader2 size={16} className="mr-2 animate-spin" /> : <UserRound size={16} className="mr-2" />}
+                {t("setAsProfilePicture")}
+              </Button>
+            )}
             <Button variant="ghost" className="w-full justify-center rounded-full text-muted-foreground" onClick={handleRegenerate}>
               <RefreshCw size={16} className="mr-2" /> {t("regenerate")}
             </Button>
@@ -360,6 +477,17 @@ function OutputContent() {
                 >
                   <Share2 size={14} className="mr-1" /> {t("share")}
                 </Button>
+                {resultPaths[previewIdx] && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full border-white/20 bg-black/40 text-white hover:bg-black/60"
+                    onClick={() => handleSetProfile(resultPaths[previewIdx])}
+                    disabled={settingAvatar}
+                  >
+                    <UserRound size={14} className="mr-1" /> {t("setAsProfilePicture")}
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>
