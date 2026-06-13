@@ -4,8 +4,9 @@ export type SuggestionKind = "warning" | "required_upload" | "example_input";
 export type OrderStatus = "pending" | "paid" | "processing" | "completed" | "failed";
 export type OrderKind = "generation" | "print";
 export type GenerationStatus = "queued" | "processing" | "done" | "failed";
-export type PaymentProvider = "qpay" | "card";
+export type PaymentProvider = "qpay" | "card" | "wallet";
 export type PaymentStatus = "pending" | "success" | "failed";
+export type WalletTxnType = "topup" | "spend" | "refund" | "adjustment";
 export type PrintProductionStatus = "pending" | "printing" | "framing" | "ready";
 export type PrintDeliveryStatus = "pending" | "shipping" | "delivered";
 
@@ -18,7 +19,9 @@ export interface Database {
           phone: string;
           name: string | null;
           email: string | null;
+          avatar_url: string | null;
           is_admin: boolean;
+          public_sharing_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -27,14 +30,18 @@ export interface Database {
           phone: string;
           name?: string | null;
           email?: string | null;
+          avatar_url?: string | null;
           is_admin?: boolean;
+          public_sharing_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           name?: string | null;
           email?: string | null;
+          avatar_url?: string | null;
           is_admin?: boolean;
+          public_sharing_enabled?: boolean;
           updated_at?: string;
         };
         Relationships: [];
@@ -346,6 +353,37 @@ export interface Database {
           }
         ];
       };
+      favorites: {
+        Row: {
+          user_id: string;
+          preset_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          preset_id: string;
+          created_at?: string;
+        };
+        Update: {
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "favorites_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "favorites_preset_id_fkey";
+            columns: ["preset_id"];
+            isOneToOne: false;
+            referencedRelation: "presets";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       print_orders: {
         Row: {
           id: string;
@@ -421,6 +459,103 @@ export interface Database {
         };
         Relationships: [];
       };
+      wallets: {
+        Row: {
+          user_id: string;
+          balance_mnt: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          balance_mnt?: number;
+          updated_at?: string;
+        };
+        Update: {
+          balance_mnt?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      wallet_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount_mnt: number;
+          balance_after: number;
+          type: WalletTxnType;
+          order_id: string | null;
+          payment_id: string | null;
+          idempotency_key: string;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount_mnt: number;
+          balance_after: number;
+          type: WalletTxnType;
+          order_id?: string | null;
+          payment_id?: string | null;
+          idempotency_key: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          note?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      wallet_topups: {
+        Row: {
+          id: string;
+          user_id: string;
+          qpay_invoice_id: string | null;
+          amount_mnt: number;
+          status: PaymentStatus;
+          credited_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          qpay_invoice_id?: string | null;
+          amount_mnt: number;
+          status?: PaymentStatus;
+          credited_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          qpay_invoice_id?: string | null;
+          status?: PaymentStatus;
+          credited_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wallet_topups_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       presets_public: {
@@ -450,14 +585,47 @@ export interface Database {
         };
         Relationships: [];
       };
+      preset_generation_counts: {
+        Row: {
+          preset_id: string;
+          generation_count: number;
+        };
+        Relationships: [];
+      };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      wallet_credit: {
+        Args: {
+          p_user: string;
+          p_amount: number;
+          p_type: WalletTxnType;
+          p_idempotency_key: string;
+          p_order?: string | null;
+          p_payment?: string | null;
+          p_note?: string | null;
+        };
+        Returns: number;
+      };
+      wallet_debit: {
+        Args: {
+          p_user: string;
+          p_amount: number;
+          p_type: WalletTxnType;
+          p_idempotency_key: string;
+          p_order?: string | null;
+          p_payment?: string | null;
+          p_note?: string | null;
+        };
+        Returns: number;
+      };
+    };
     Enums: {
       order_status: OrderStatus;
       order_kind: OrderKind;
       generation_status: GenerationStatus;
       payment_provider: PaymentProvider;
       payment_status: PaymentStatus;
+      wallet_txn_type: WalletTxnType;
       print_production_status: PrintProductionStatus;
       print_delivery_status: PrintDeliveryStatus;
     };
