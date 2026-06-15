@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { uploadFile, validateImageFile, removeFiles, UPLOADS_BUCKET } from "@/lib/supabase/storage";
 import { createInvoice, type QPayDeepLink } from "@/lib/qpay";
-import { getPresetModelConfig } from "@/lib/presets-server";
+import { getPresetModelConfig, getPresetPricing } from "@/lib/presets-server";
+import { computeShareDiscount } from "@/lib/pricing";
 import { debitWallet } from "@/lib/wallet-server";
 import { runGeneration } from "@/app/actions/generation";
 import type { Database } from "@/lib/supabase/types";
@@ -27,11 +28,17 @@ export async function createPaymentIntent(formData: FormData): Promise<PaymentIn
   if (!user) throw new Error("Нэвтэрч орно уу.");
 
   const presetId = formData.get("presetId") as string;
-  const amountMnt = Number(formData.get("amountMnt"));
   const ratio = formData.get("ratio") as string;
   const background = (formData.get("background") as string) || null;
   const intensity = formData.has("intensity") ? Number(formData.get("intensity")) : null;
   const isPrivate = formData.get("isPrivate") !== "false";
+
+  // Price the order server-side from the preset (never trust a client amount):
+  // sharing to the public feed earns the preset's discount. Snapshot the result
+  // so un-share can replay it even if the preset's price/percent changes later.
+  const { priceMnt, discountPct } = await getPresetPricing(presetId);
+  const pricing = computeShareDiscount(priceMnt, discountPct, !isPrivate);
+  const amountMnt = pricing.paid;
 
   // Validate all files before starting any DB writes
   const files: File[] = [];
@@ -53,7 +60,7 @@ export async function createPaymentIntent(formData: FormData): Promise<PaymentIn
       preset_id: presetId,
       status: "pending" as const,
       amount_mnt: amountMnt,
-      options_snapshot: { ratio, background, intensity, isPrivate, uploadPaths: [] as string[] },
+      options_snapshot: { ratio, background, intensity, isPrivate, pricing: { full: pricing.full, discount: pricing.discount, paid: pricing.paid }, uploadPaths: [] as string[] },
     })
     .select()
     .single();
@@ -78,7 +85,7 @@ export async function createPaymentIntent(formData: FormData): Promise<PaymentIn
   await admin
     .from("orders")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update({ options_snapshot: { ratio, background, intensity, isPrivate, uploadPaths } } as any)
+    .update({ options_snapshot: { ratio, background, intensity, isPrivate, pricing, uploadPaths } } as any)
     .eq("id", order.id);
 
   // Create QPay invoice (mock or real depending on QPAY_MOCK env var)
@@ -132,11 +139,15 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
   if (!user) throw new Error("Нэвтэрч орно уу.");
 
   const presetId = formData.get("presetId") as string;
-  const amountMnt = Number(formData.get("amountMnt"));
   const ratio = formData.get("ratio") as string;
   const background = (formData.get("background") as string) || null;
   const intensity = formData.has("intensity") ? Number(formData.get("intensity")) : null;
   const isPrivate = formData.get("isPrivate") !== "false";
+
+  // Price the order server-side (see createPaymentIntent) and snapshot it.
+  const { priceMnt, discountPct } = await getPresetPricing(presetId);
+  const pricing = computeShareDiscount(priceMnt, discountPct, !isPrivate);
+  const amountMnt = pricing.paid;
 
   // Validate all files before any DB writes.
   const files: File[] = [];
@@ -162,7 +173,7 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
       preset_id: presetId,
       status: "pending" as const,
       amount_mnt: amountMnt,
-      options_snapshot: { ratio, background, intensity, isPrivate, uploadPaths: [] as string[] },
+      options_snapshot: { ratio, background, intensity, isPrivate, pricing: { full: pricing.full, discount: pricing.discount, paid: pricing.paid }, uploadPaths: [] as string[] },
     })
     .select()
     .single();
@@ -187,7 +198,7 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
   await admin
     .from("orders")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update({ options_snapshot: { ratio, background, intensity, isPrivate, uploadPaths } } as any)
+    .update({ options_snapshot: { ratio, background, intensity, isPrivate, pricing, uploadPaths } } as any)
     .eq("id", order.id);
 
   // Debit the wallet atomically (idempotent on `spend:{orderId}`). If the
@@ -231,6 +242,10 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
       status: "queued" as const,
       progress: 0,
       queue_position: 1,
+      full_price_mnt: pricing.full,
+      discount_mnt: pricing.discount,
+      paid_price_mnt: pricing.paid,
+      shared_to_feed: !isPrivate,
     })
     .select()
     .single();

@@ -15,6 +15,7 @@ interface OptionsSnapshot {
   background: string | null;
   intensity: number | null;
   isPrivate: boolean;
+  pricing?: { full: number; discount: number; paid: number };
   uploadPaths: string[];
 }
 
@@ -103,6 +104,10 @@ export async function GET(
   const presetId = order.preset_id;
 
   const snapshot = order.options_snapshot as unknown as OptionsSnapshot;
+  // Replay the price snapshot captured at intent time (un-share repays this
+  // exact discount). Fall back to the paid amount for legacy orders that
+  // predate the snapshot.
+  const pricing = snapshot.pricing ?? { full: order.amount_mnt, discount: 0, paid: order.amount_mnt };
 
   // Create queued generation record
   const { data: gen } = await admin
@@ -113,6 +118,10 @@ export async function GET(
       status: "queued" as const,
       progress: 0,
       queue_position: 1,
+      full_price_mnt: pricing.full,
+      discount_mnt: pricing.discount,
+      paid_price_mnt: pricing.paid,
+      shared_to_feed: !snapshot.isPrivate,
     })
     .select()
     .single();

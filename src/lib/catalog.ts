@@ -34,6 +34,8 @@ export interface Preset {
   output_ratio: string;
   steps: number;
   price_mnt: number;
+  /** Public-sharing discount as a whole percent (0–100); 0 = none. */
+  public_discount_pct: number;
   eta_min: string;
   warnings_mn: string[];
   example_output: string;

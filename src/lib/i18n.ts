@@ -96,8 +96,15 @@ export const translations = {
     privateToggle: "Хувийн (зөвхөн би харах)",
     shareToggle: "Бусдад харуулах",
     shareToggleHelp:
-      "Энэ зургийг нүүр хуудасны галерейд бусад хэрэглэгчдэд харуулна. Тохиргоо хэсгээс “Бусдад харуулах”-ыг асаасан үед л харагдана. Аль ч үед буцааж нууцлах боломжтой.",
+      "Энэ зургийг нүүр хуудасны нийтийн галерейд бусад хэрэглэгчдэд харуулна. Дараа нь нэг удаа нууцалж болно (буцаан нийтлэх боломжгүй).",
+    shareToggleHelpDiscount:
+      "Энэ зургийг нийтийн галерейд бусдад харуулж, доорх хямдралыг эдэлнэ. Дараа нь нэг удаа нууцалж болно — нууцлахдаа эдэлсэн хямдралаа буцаан төлнө. Нэг нууцалсан зургийг дахин нийтлэх боломжгүй.",
+    regularPriceLabel: "Энгийн үнэ",
+    discountLabel: "Хямдрал",
     sharedBadge: "Нийтэд харагдаж байна",
+    unshareAction: "Feed-ээс нууцлах",
+    unshareHelp:
+      "Энэ зураг нийтийн галерейд харагдаж байна. Нууцалбал эдэлсэн хямдралаа буцаан төлж, дахин нийтлэх боломжгүй болно.",
     qpayTitle: "QPay-р төлөх",
     qpayDesc: "QR кодыг уншуулах эсвэл банкны апп сонгох",
     bankApps: "Банкны апп",
@@ -366,8 +373,15 @@ export const translations = {
     privateToggle: "Private (only visible to me)",
     shareToggle: "Show to others",
     shareToggleHelp:
-      "Show this image to other users in the home gallery. It only appears once you turn on “Show to others” in Settings. You can make it private again anytime.",
+      "Show this image to other users in the home public gallery. You can hide it once later (it can't be re-shared).",
+    shareToggleHelpDiscount:
+      "Share this image in the public gallery and get the discount below. You can hide it once later — doing so repays the discount you received. A hidden image can't be shared again.",
+    regularPriceLabel: "Regular price",
+    discountLabel: "Discount",
     sharedBadge: "Shown publicly",
+    unshareAction: "Hide from feed",
+    unshareHelp:
+      "This image is shown in the public gallery. Hiding it repays the discount you used, and it can't be shared again.",
     qpayTitle: "Pay with QPay",
     qpayDesc: "Scan the QR code or choose your banking app",
     bankApps: "Banking apps",

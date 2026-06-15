@@ -4,7 +4,13 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { uploadFile, storeOutputFile, validateImageFile, getSignedUrls, UPLOADS_BUCKET } from "@/lib/supabase/storage";
+import {
+  uploadFile,
+  storeOutputFile,
+  validateImageFile,
+  getSignedUrls,
+  UPLOADS_BUCKET,
+} from "@/lib/supabase/storage";
 import { getPresetModelConfig } from "@/lib/presets-server";
 import { refundForGeneration } from "@/lib/wallet-server";
 import { callAI } from "@/lib/ai/generate";
@@ -20,19 +26,26 @@ export interface SubmitOrderResult {
   orderId: string;
 }
 
-export async function submitOrder(formData: FormData): Promise<SubmitOrderResult> {
+export async function submitOrder(
+  formData: FormData,
+): Promise<SubmitOrderResult> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Нэвтэрч орно уу.");
 
   const presetId = formData.get("presetId") as string;
   const amountMnt = Number(formData.get("amountMnt"));
   const ratio = formData.get("ratio") as string;
   const background = (formData.get("background") as string) || null;
-  const intensity = formData.has("intensity") ? Number(formData.get("intensity")) : null;
+  const intensity = formData.has("intensity")
+    ? Number(formData.get("intensity"))
+    : null;
   const isPrivate = formData.get("isPrivate") !== "false";
 
-  const { prompt: internalPrompt, model } = await getPresetModelConfig(presetId);
+  const { prompt: internalPrompt, model } =
+    await getPresetModelConfig(presetId);
 
   // Collect and validate uploaded files
   const files: File[] = [];
@@ -61,14 +74,16 @@ export async function submitOrder(formData: FormData): Promise<SubmitOrderResult
 
   const order = orderRes.data as OrderRow | null;
   const orderErr = orderRes.error;
-  if (orderErr || !order) throw new Error(orderErr?.message ?? "Захиалга үүсгэхэд алдаа гарлаа.");
+  if (orderErr || !order)
+    throw new Error(orderErr?.message ?? "Захиалга үүсгэхэд алдаа гарлаа.");
 
   // Upload source images to private storage bucket; collect storage paths
   const uploadPaths = await Promise.all(
-    files.map((file, idx) => uploadFile(file, user.id, order.id, idx))
+    files.map((file, idx) => uploadFile(file, user.id, order.id, idx)),
   );
 
-  // Create generation record (queued)
+  // Create generation record (queued). This path takes no payment, so no
+  // sharing discount is consumed — discount_mnt stays 0 and un-share is free.
   const genRes = await supabase
     .from("generations")
     .insert({
@@ -77,13 +92,20 @@ export async function submitOrder(formData: FormData): Promise<SubmitOrderResult
       status: "queued" as const,
       progress: 0,
       queue_position: 1,
+      full_price_mnt: amountMnt,
+      discount_mnt: 0,
+      paid_price_mnt: amountMnt,
+      shared_to_feed: !isPrivate,
     })
     .select()
     .single();
 
   const generation = genRes.data as GenerationRow | null;
   const genErr = genRes.error;
-  if (genErr || !generation) throw new Error(genErr?.message ?? "Боловсруулалт эхлүүлэхэд алдаа гарлаа.");
+  if (genErr || !generation)
+    throw new Error(
+      genErr?.message ?? "Боловсруулалт эхлүүлэхэд алдаа гарлаа.",
+    );
 
   // Kick off generation after the response is sent to the client.
   // The client immediately starts polling /api/generation/{id} for status.
@@ -96,7 +118,7 @@ export async function submitOrder(formData: FormData): Promise<SubmitOrderResult
       internalPrompt,
       model,
       options: { ratio, background, intensity, isPrivate },
-    })
+    }),
   );
 
   return { generationId: generation.id, orderId: order.id };
@@ -109,7 +131,12 @@ export interface RunGenerationParams {
   uploadPaths: string[];
   internalPrompt: string;
   model: string;
-  options: { ratio: string; background: string | null; intensity: number | null; isPrivate?: boolean };
+  options: {
+    ratio: string;
+    background: string | null;
+    intensity: number | null;
+    isPrivate?: boolean;
+  };
 }
 
 export async function runGeneration({
@@ -124,14 +151,29 @@ export async function runGeneration({
   const admin = createAdminClient();
 
   const updateGen = (fields: GenUpdate) =>
-    admin.from("generations").update(fields as GenUpdate).eq("id", generationId);
+    admin
+      .from("generations")
+      .update(fields as GenUpdate)
+      .eq("id", generationId);
 
   const log = (event: string, extra?: Record<string, unknown>) =>
-    console.log(JSON.stringify({ event, generationId, orderId, ts: new Date().toISOString(), ...extra }));
+    console.log(
+      JSON.stringify({
+        event,
+        generationId,
+        orderId,
+        ts: new Date().toISOString(),
+        ...extra,
+      }),
+    );
 
   log("generation.started");
   try {
-    await updateGen({ status: "processing", progress: 10, queue_position: null });
+    await updateGen({
+      status: "processing",
+      progress: 10,
+      queue_position: null,
+    });
 
     // Get short-lived signed URLs so the AI backend can read the private uploads.
     // getSignedUrls yields "" for a missing object — fail loudly here rather
@@ -145,17 +187,31 @@ export async function runGeneration({
     await updateGen({ progress: 20 });
 
     log("generation.ai_call");
-    const { imageUrls } = await callAI({ model, imageUrls: signedUrls, prompt: internalPrompt, options });
+    const { imageUrls } = await callAI({
+      model,
+      imageUrls: signedUrls,
+      prompt: internalPrompt,
+      options,
+    });
 
     await updateGen({ progress: 80 });
 
     // Download AI outputs and store them in the private outputs bucket
     const resultPaths = await Promise.all(
-      imageUrls.map((url, idx) => storeOutputFile(url, userId, generationId, idx))
+      imageUrls.map((url, idx) =>
+        storeOutputFile(url, userId, generationId, idx),
+      ),
     );
 
-    await updateGen({ status: "done", progress: 100, result_urls: resultPaths });
-    await admin.from("orders").update({ status: "completed" } as OrderUpdate).eq("id", orderId);
+    await updateGen({
+      status: "done",
+      progress: 100,
+      result_urls: resultPaths,
+    });
+    await admin
+      .from("orders")
+      .update({ status: "completed" } as OrderUpdate)
+      .eq("id", orderId);
 
     // Auto-save every output to the user's gallery (assets). Deduped on
     // generation_id so a re-run never double-inserts.
@@ -166,8 +222,8 @@ export async function runGeneration({
       .limit(1);
     if (!existingAssets?.length) {
       // Honour the user's per-generation "show to others" choice (defaults to
-      // private). The user's master switch still gates whether shared images
-      // actually appear in the public showcase.
+      // private). This is the only point sharing is decided; a shared image
+      // appears in the public showcase until the owner hides it (which is final).
       const isPrivate = options.isPrivate ?? true;
       await admin.from("assets").insert(
         resultPaths.map((path) => ({
@@ -175,7 +231,7 @@ export async function runGeneration({
           generation_id: generationId,
           storage_path: path,
           is_private: isPrivate,
-        }))
+        })),
       );
     }
 
@@ -184,7 +240,10 @@ export async function runGeneration({
     const message = err instanceof Error ? err.message : "Generation failed";
     log("generation.failed", { error: message });
     await updateGen({ status: "failed", error: message });
-    await admin.from("orders").update({ status: "failed" } as OrderUpdate).eq("id", orderId);
+    await admin
+      .from("orders")
+      .update({ status: "failed" } as OrderUpdate)
+      .eq("id", orderId);
 
     // Auto-refund the paid amount back to the wallet (instant, no QPay refund
     // API). Idempotent per generation; a no-op when the order had no successful
@@ -194,7 +253,8 @@ export async function runGeneration({
       log("generation.refunded");
     } catch (refundErr) {
       log("generation.refund_failed", {
-        error: refundErr instanceof Error ? refundErr.message : String(refundErr),
+        error:
+          refundErr instanceof Error ? refundErr.message : String(refundErr),
       });
     }
   }
@@ -202,7 +262,9 @@ export async function runGeneration({
 
 export async function saveToGallery(generationId: string): Promise<void> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Нэвтэрч орно уу.");
 
   const genRes = await supabase
@@ -234,13 +296,14 @@ export async function saveToGallery(generationId: string): Promise<void> {
       generation_id: generationId,
       storage_path: path,
       is_private: true,
-    }))
+    })),
   );
 
   if (insertErr) throw new Error(insertErr.message);
   revalidatePath("/gallery");
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function reportGeneration(_generationId: string): Promise<void> {
   // TODO Phase 5: insert into a reports table and notify admins
 }
