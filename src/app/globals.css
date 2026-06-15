@@ -82,6 +82,11 @@
     --neu-light: #ffffff; /* highlight half */
     --neu-dark: #babecc; /* shadow half */
     --shadow-card: 8px 4px 16px #babecc, -4px -4px 8px #ffffff;
+    /* Same geometry as --shadow-card at ~50% strength (alpha) — the soft tier. */
+    --shadow-card-sm:
+        8px 4px 16px rgb(186 190 204 / 0.5), -4px -4px 8px rgb(255 255 255 / 0.5);
+    --shadow-card-xs:
+        8px 4px 16px rgb(186 190 204 / 0.3), -4px -4px 8px rgb(255 255 255 / 0.3);
     --shadow-floating:
         12px 12px 24px #babecc, -12px -12px 24px #ffffff,
         inset 1px 1px 0 rgba(255, 255, 255, 0.5);
@@ -162,6 +167,11 @@
     --neu-light: #34393f; /* highlight half */
     --neu-dark: #16181c; /* shadow half */
     --shadow-card: 8px 8px 16px #16181c, -4px -4px 16px #34393f;
+    /* Same geometry as --shadow-card at ~50% strength (alpha) — the soft tier. */
+    --shadow-card-sm:
+        8px 8px 16px rgb(22 24 28 / 0.5), -4px -4px 16px rgb(52 57 63 / 0.5);
+    --shadow-card-xs:
+        8px 8px 16px rgb(22 24 28 / 0.3), -4px -4px 16px rgb(52 57 63 / 0.3);
     --shadow-floating:
         12px 12px 24px #16181c, -12px -12px 24px #34393f,
         inset 1px 1px 0 rgba(255, 255, 255, 0.06);

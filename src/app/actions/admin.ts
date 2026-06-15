@@ -39,6 +39,7 @@ export interface PresetInput {
   output_ratio: string;
   steps: number;
   price_mnt: number;
+  public_discount_pct: number;
   eta_min: string;
   warnings_mn: string[];
   internal_prompt: string;

@@ -21,12 +21,10 @@ import {
   Loader2,
   MapPin,
   User,
-  Eye,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { exportUserData, deleteAccount } from "@/app/actions/account";
-import { setPublicSharing } from "@/app/actions/profile";
 import { AddressManager } from "@/components/settings/address-manager";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -44,9 +42,6 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // Master switch for the public showcase. null = still loading (control hidden).
-  const [publicSharing, setPublicSharingState] = useState<boolean | null>(null);
-  const [savingSharing, setSavingSharing] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -56,7 +51,7 @@ export default function SettingsPage() {
       if (!user) return;
       const { data } = await supabase
         .from("users")
-        .select("name, phone, public_sharing_enabled")
+        .select("name, phone")
         .eq("id", user.id)
         .single();
       setDisplayName(data?.name || user.email?.split("@")[0] || "Хэрэглэгч");
@@ -65,27 +60,8 @@ export default function SettingsPage() {
           ? `+976 ${data.phone}`
           : (user.email ?? "");
       setDisplaySub(sub);
-      setPublicSharingState(data?.public_sharing_enabled ?? false);
     });
   }, []);
-
-  const handleToggleSharing = async () => {
-    if (publicSharing === null || savingSharing) return;
-    const next = !publicSharing;
-    setPublicSharingState(next); // optimistic
-    setSavingSharing(true);
-    try {
-      await setPublicSharing(next);
-      toast.success(
-        next ? "Бусдад харуулахыг асаалаа." : "Бусдад харуулахыг унтраалаа.",
-      );
-    } catch (err) {
-      setPublicSharingState(!next); // revert
-      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
-    } finally {
-      setSavingSharing(false);
-    }
-  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -241,45 +217,9 @@ export default function SettingsPage() {
           <AddressManager />
         </section>
 
-        {/* Public showcase — master switch */}
-        <section className="mb-6">
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            <Eye size={12} /> {t("publicSharing")}
-          </div>
-          <div className="flex items-start justify-between gap-4 rounded-xl p-4 shadow-(--shadow-card)">
-            <div>
-              <p className="font-semibold">{t("publicSharing")}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {t("publicSharingHelp")}
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={publicSharing ?? false}
-              aria-label={t("publicSharing")}
-              onClick={handleToggleSharing}
-              disabled={publicSharing === null || savingSharing}
-              className={cn(
-                "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
-                publicSharing
-                  ? "bg-primary"
-                  : "bg-muted shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]",
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-block h-4 w-4 transform rounded-full bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)] transition-transform",
-                  publicSharing ? "translate-x-6" : "translate-x-1",
-                )}
-              />
-            </button>
-          </div>
-        </section>
-
         {/* Privacy */}
         <section className="mb-6">
-          <div className="mb-3 flex items-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          <div className="mb-3 flex gap-2 items-center text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <Lock size={12} /> {t("privacy")}
           </div>
           <div className="flex flex-col gap-4">

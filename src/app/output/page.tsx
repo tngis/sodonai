@@ -4,13 +4,14 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Download, Frame, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loader2, ChevronLeft, ChevronRight, UserRound, Eye, EyeOff, Check } from "lucide-react";
+import { Download, Frame, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loader2, ChevronLeft, ChevronRight, UserRound, EyeOff, Check } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { reportGeneration } from "@/app/actions/generation";
 import { getOutputUrls } from "@/app/actions/storage";
 import { setAvatarFromGallery } from "@/app/actions/profile";
-import { setGenerationVisibility } from "@/app/actions/showcase";
+import { unshareGeneration } from "@/app/actions/showcase";
+import { formatMnt } from "@/lib/wallet";
 import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
@@ -38,17 +39,24 @@ function OutputContent() {
   const [loading, setLoading] = useState(true);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const [celebrate, setCelebrate] = useState(false);
-  // Public-showcase visibility for this generation. null = not the owner / not
-  // saved as an asset, so the control is hidden. Read from assets.is_private.
+  // Is this generation CURRENTLY public? true → show the "hide from feed" action
+  // (the only post-generation visibility control). false/null → private (never
+  // shared) or already unshared (hidden for good) — no control either way, since
+  // sharing is opt-in at generation time and un-sharing is final. Read from
+  // assets.is_private.
   const [shared, setShared] = useState<boolean | null>(null);
   const [savingShare, setSavingShare] = useState(false);
+  // Discount consumed by sharing this generation — repaid on un-share. 0 when it
+  // was generated via the no-pay path.
+  const [unshareCost, setUnshareCost] = useState(0);
+  const [confirmUnshare, setConfirmUnshare] = useState(false);
 
   const load = useCallback(async () => {
     if (!generationId) { setLoading(false); return; }
     const supabase = createClient();
     const { data, error } = await supabase
       .from("generations")
-      .select("id, status, result_urls, error")
+      .select("id, status, result_urls, error, discount_mnt")
       .eq("id", generationId)
       .single();
 
@@ -56,6 +64,7 @@ function OutputContent() {
     // Cast needed because @supabase/supabase-js type inference breaks with TS 5.9+
     const typed = data as unknown as GenerationResult;
     setGen(typed);
+    setUnshareCost((data as unknown as { discount_mnt: number | null }).discount_mnt ?? 0);
 
     // This generation's showcase visibility. Owner-read RLS means a row comes
     // back only when the caller owns the generation's gallery assets.
@@ -170,16 +179,27 @@ function OutputContent() {
     router.push("/generate");
   };
 
-  const handleToggleShare = async () => {
-    if (shared === null || savingShare || !generationId) return;
-    const next = !shared;
-    setShared(next); // optimistic
+  // Hide this image from the public feed — the only post-generation visibility
+  // action, and a final one (no re-share). Repays the consumed discount, so
+  // confirm first when there's a cost; a no-pay-path image (cost 0) hides
+  // straight away.
+  const handleUnshareClick = () => {
+    if (!shared || savingShare || !generationId) return;
+    if (unshareCost > 0) { setConfirmUnshare(true); return; }
+    runUnshare();
+  };
+
+  // Charge the consumed discount (if any), then hide the image. Visibility flips
+  // only after the repayment succeeds, so a failed payment leaves it shared.
+  const runUnshare = async () => {
+    if (!generationId) return;
     setSavingShare(true);
     try {
-      await setGenerationVisibility(generationId, next);
-      toast.success(next ? "Бусдад харагдахаар тохирлоо." : "Нууцлав.");
+      const { charged } = await unshareGeneration(generationId);
+      setShared(false);
+      setConfirmUnshare(false);
+      toast.success(charged > 0 ? `${formatMnt(charged)} төлж нууцаллаа.` : "Нууцлав.");
     } catch (err) {
-      setShared(!next); // revert
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
     } finally {
       setSavingShare(false);
@@ -339,37 +359,21 @@ function OutputContent() {
               <Share2 size={16} className="mr-2" /> {t("share")}
             </Button>
 
-            {/* Showcase visibility — only for the owner (shared !== null). */}
-            {shared !== null && (
-              <div className="flex items-start justify-between gap-3 rounded-xl p-4 shadow-(--shadow-card)">
-                <div>
-                  <p className="flex items-center gap-1.5 text-sm font-semibold">
-                    {shared ? <Eye size={14} className="text-primary" /> : <EyeOff size={14} className="text-muted-foreground" />}
-                    {t("shareToggle")}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{t("shareToggleHelp")}</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={shared}
-                  aria-label={t("shareToggle")}
-                  onClick={handleToggleShare}
+            {/* Hide-from-feed — only while the image is public. Sharing is opt-in
+                at generation time and un-sharing is final, so this is the lone
+                post-generation visibility control. */}
+            {shared === true && (
+              <div className="rounded-xl p-4 shadow-(--shadow-card)">
+                <p className="text-xs text-muted-foreground">{t("unshareHelp")}</p>
+                <Button
+                  variant="outline"
+                  className="mt-3 w-full justify-center rounded-full"
+                  onClick={handleUnshareClick}
                   disabled={savingShare}
-                  className={cn(
-                    "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-60",
-                    shared
-                      ? "bg-primary"
-                      : "bg-muted shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]"
-                  )}
                 >
-                  <span
-                    className={cn(
-                      "inline-block h-4 w-4 transform rounded-full bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)] transition-transform",
-                      shared ? "translate-x-6" : "translate-x-1"
-                    )}
-                  />
-                </button>
+                  {savingShare ? <Loader2 size={16} className="mr-2 animate-spin" /> : <EyeOff size={16} className="mr-2" />}
+                  {t("unshareAction")}
+                </Button>
               </div>
             )}
             {resultPaths.some((p) => p) && (
@@ -490,6 +494,55 @@ function OutputContent() {
                 )}
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Un-share confirmation — repays the consumed sharing discount. */}
+      <AnimatePresence>
+        {confirmUnshare && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={() => !savingShare && setConfirmUnshare(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm rounded-2xl bg-background p-6 shadow-(--shadow-floating)"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="flex items-center gap-2 text-lg font-bold">
+                <EyeOff size={18} className="text-muted-foreground" /> Feed-ээс нууцлах уу?
+              </h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Энэ зургийг нууцлахын тулд эдэлсэн{" "}
+                <span className="font-semibold text-foreground">{formatMnt(unshareCost)}</span>{" "}
+                хямдралаа буцаан төлнө. Үргэлжлүүлэх үү?
+              </p>
+              <div className="mt-5 flex gap-2">
+                <Button
+                  onClick={runUnshare}
+                  disabled={savingShare}
+                  variant="shadow"
+                  className="flex-1 justify-center rounded-full font-bold"
+                >
+                  {savingShare ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                  Төлөөд нууцлах
+                </Button>
+                <Button
+                  onClick={() => setConfirmUnshare(false)}
+                  disabled={savingShare}
+                  variant="outline"
+                  className="flex-1 justify-center rounded-full"
+                >
+                  Цуцлах
+                </Button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

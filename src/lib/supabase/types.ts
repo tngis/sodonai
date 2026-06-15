@@ -85,6 +85,7 @@ export interface Database {
           output_ratio: string;
           steps: number;
           price_mnt: number;
+          public_discount_pct: number;
           eta_min: string;
           warnings_mn: string[];
           internal_prompt: string;
@@ -111,6 +112,7 @@ export interface Database {
           output_ratio: string;
           steps: number;
           price_mnt: number;
+          public_discount_pct?: number;
           eta_min: string;
           warnings_mn: string[];
           internal_prompt: string;
@@ -236,6 +238,10 @@ export interface Database {
           result_urls: string[] | null;
           error: string | null;
           queue_position: number | null;
+          full_price_mnt: number | null;
+          discount_mnt: number;
+          paid_price_mnt: number | null;
+          shared_to_feed: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -248,6 +254,10 @@ export interface Database {
           result_urls?: string[] | null;
           error?: string | null;
           queue_position?: number | null;
+          full_price_mnt?: number | null;
+          discount_mnt?: number;
+          paid_price_mnt?: number | null;
+          shared_to_feed?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -257,6 +267,10 @@ export interface Database {
           result_urls?: string[] | null;
           error?: string | null;
           queue_position?: number | null;
+          full_price_mnt?: number | null;
+          discount_mnt?: number;
+          paid_price_mnt?: number | null;
+          shared_to_feed?: boolean;
           updated_at?: string;
         };
         Relationships: [
@@ -569,6 +583,7 @@ export interface Database {
           output_ratio: string;
           steps: number;
           price_mnt: number;
+          public_discount_pct: number;
           eta_min: string;
           warnings_mn: string[];
           example_output: string;

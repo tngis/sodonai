@@ -1,15 +1,39 @@
 "use client";
 
-import { use, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import {
+  use,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, ArrowRight, Upload, Camera, AlertTriangle, Check, X, Loader2, Plus, Wallet, QrCode } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Upload,
+  Camera,
+  AlertTriangle,
+  Check,
+  X,
+  Loader2,
+  Plus,
+  Wallet,
+  QrCode,
+} from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { getPreset, type Category, type Preset } from "@/lib/catalog";
 import { banks } from "@/lib/banks";
-import { createPaymentIntent, payWithWallet, type PaymentIntentResult } from "@/app/actions/payment";
+import {
+  createPaymentIntent,
+  payWithWallet,
+  type PaymentIntentResult,
+} from "@/app/actions/payment";
 import { getWalletBalance } from "@/app/actions/wallet";
 import { formatMnt } from "@/lib/wallet";
+import { computeShareDiscount } from "@/lib/pricing";
 import { notifyGenerationStarted } from "@/lib/generation-events";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +47,13 @@ import { cn } from "@/lib/utils";
 import type { QPayDeepLink } from "@/lib/qpay";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
 const MIN_DIMENSION = 200;
 
 function checkDimensions(file: File): Promise<string | null> {
@@ -33,12 +63,17 @@ function checkDimensions(file: File): Promise<string | null> {
     img.onload = () => {
       URL.revokeObjectURL(url);
       if (img.width < MIN_DIMENSION || img.height < MIN_DIMENSION) {
-        resolve(`"${file.name}" хамгийн багадаа ${MIN_DIMENSION}×${MIN_DIMENSION}px байх ёстой.`);
+        resolve(
+          `"${file.name}" хамгийн багадаа ${MIN_DIMENSION}×${MIN_DIMENSION}px байх ёстой.`,
+        );
       } else {
         resolve(null);
       }
     };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
     img.src = url;
   });
 }
@@ -78,11 +113,21 @@ type Step = 1 | 2 | 3;
 type PaymentPhase =
   | { kind: "idle" }
   | { kind: "creating" }
-  | { kind: "awaiting"; paymentId: string; orderId: string; qrImage: string; deepLinks: QPayDeepLink[] };
+  | {
+      kind: "awaiting";
+      paymentId: string;
+      orderId: string;
+      qrImage: string;
+      deepLinks: QPayDeepLink[];
+    };
 
 const POLL_MS = 2500;
 
-export default function GeneratePage({ params }: { params: Promise<{ presetId: string }> }) {
+export default function GeneratePage({
+  params,
+}: {
+  params: Promise<{ presetId: string }>;
+}) {
   const { presetId } = use(params);
   const { t, lang } = useLang();
   const router = useRouter();
@@ -96,9 +141,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
   const [dragOver, setDragOver] = useState(false);
   const [selectedBg, setSelectedBg] = useState("");
   const [intensity, setIntensity] = useState(50);
-  // "Show to others" — off by default (private). Sent to the server as the
-  // inverse `isPrivate`. The owner's master switch in Settings still gates
-  // whether shared images actually appear in the public showcase.
+  // "Show to others" — off by default (private). This is the ONLY place sharing
+  // can be opted into (it earns the preset's discount); there's no re-share
+  // later. Sent to the server as the inverse `isPrivate`.
   const [share, setShare] = useState(false);
   const [ratio, setRatio] = useState("");
   // Aspect (width / height) of the first uploaded image — used to render the
@@ -114,7 +159,10 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
   useEffect(() => {
     getPreset(presetId).then((result) => {
-      if (!result) { router.push("/generate"); return; }
+      if (!result) {
+        router.push("/generate");
+        return;
+      }
       setPreset(result.preset);
       setCategory(result.category);
       setSelectedBg(result.preset.options?.backgroundPresets?.[0] ?? "");
@@ -132,52 +180,92 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
   // The preset's own output_ratio is always the first (leftmost) chip and the
   // default selection; the rest are common photo ratios the user can switch to.
-  const RATIO_CHOICES = ["1:1", "4:3", "3:4", "16:9", "9:16", "4:5", "3:2", "2:3"];
+  const RATIO_CHOICES = [
+    "1:1",
+    "4:3",
+    "3:4",
+    "16:9",
+    "9:16",
+    "4:5",
+    "3:2",
+    "2:3",
+  ];
   const ratioOptions = preset
-    ? [preset.output_ratio, ...RATIO_CHOICES].filter((v, i, a) => a.indexOf(v) === i)
+    ? [preset.output_ratio, ...RATIO_CHOICES].filter(
+        (v, i, a) => a.indexOf(v) === i,
+      )
     : [];
 
   // Measure the first upload's aspect ratio so "Original" previews at its real shape.
   useEffect(() => {
     const file = uploads[0];
-    if (!file) { setOriginalAspect(null); return; }
+    if (!file) return;
     const url = URL.createObjectURL(file);
     const img = new window.Image();
-    img.onload = () => { setOriginalAspect(img.width / img.height); URL.revokeObjectURL(url); };
-    img.onerror = () => { URL.revokeObjectURL(url); };
+    img.onload = () => {
+      setOriginalAspect(img.width / img.height);
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      setOriginalAspect(null);
+      URL.revokeObjectURL(url);
+    };
     img.src = url;
+    return () => {
+      URL.revokeObjectURL(url);
+    };
   }, [uploads]);
+
+  // Reset aspect when uploads are cleared (no file to measure).
+  const prevUploadsLen = useRef(uploads.length);
+  useEffect(() => {
+    if (prevUploadsLen.current > 0 && uploads.length === 0) {
+      setOriginalAspect(null);
+    }
+    prevUploadsLen.current = uploads.length;
+  }, [uploads.length]);
 
   // Aspect used by the live preview frame: the chosen numeric ratio, else the
   // input image's aspect (for "Original"), else a square fallback.
   const previewAspect = parseRatio(ratio) ?? originalAspect ?? 1;
 
   // Validate a single image (type, size, min dimensions). Returns error or null.
-  const validateFile = useCallback(async (file: File): Promise<string | null> => {
-    if (!ALLOWED_TYPES.includes(file.type)) return "Зөвхөн JPEG, PNG, WEBP зураг оруулна уу.";
-    if (file.size > MAX_FILE_SIZE) return `"${file.name}" 10MB-аас их байна.`;
-    return checkDimensions(file);
-  }, []);
+  const validateFile = useCallback(
+    async (file: File): Promise<string | null> => {
+      if (!ALLOWED_TYPES.includes(file.type))
+        return "Зөвхөн JPEG, PNG, WEBP зураг оруулна уу.";
+      if (file.size > MAX_FILE_SIZE) return `"${file.name}" 10MB-аас их байна.`;
+      return checkDimensions(file);
+    },
+    [],
+  );
 
   // Validate and APPEND new files to the existing selection (dedupe, capped).
-  const validateAndAddFiles = useCallback(async (files: FileList | null) => {
-    if (!files || !preset) return;
-    const cap = preset.required_max ?? 9;
-    const incoming = Array.from(files);
-    const valid: File[] = [];
-    for (const file of incoming) {
-      const err = await validateFile(file);
-      if (err) { toast.error(err); return; }
-      valid.push(file);
-    }
-    setUploads((prev) => {
-      const merged = [...prev];
-      for (const f of valid) {
-        if (!merged.some((m) => m.name === f.name && m.size === f.size)) merged.push(f);
+  const validateAndAddFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || !preset) return;
+      const cap = preset.required_max ?? 9;
+      const incoming = Array.from(files);
+      const valid: File[] = [];
+      for (const file of incoming) {
+        const err = await validateFile(file);
+        if (err) {
+          toast.error(err);
+          return;
+        }
+        valid.push(file);
       }
-      return merged.slice(0, cap);
-    });
-  }, [preset, validateFile]);
+      setUploads((prev) => {
+        const merged = [...prev];
+        for (const f of valid) {
+          if (!merged.some((m) => m.name === f.name && m.size === f.size))
+            merged.push(f);
+        }
+        return merged.slice(0, cap);
+      });
+    },
+    [preset, validateFile],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -185,7 +273,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
       setDragOver(false);
       validateAndAddFiles(e.dataTransfer.files);
     },
-    [validateAndAddFiles]
+    [validateAndAddFiles],
   );
 
   // Poll for payment confirmation once the invoice is created
@@ -197,15 +285,22 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
       try {
         const res = await fetch(`/api/payment/${paymentId}`);
         if (!res.ok) return;
-        const data: { status: string; generationId?: string } = await res.json();
-        if (data.status === "paid" && data.generationId && !confirmedRef.current) {
+        const data: { status: string; generationId?: string } =
+          await res.json();
+        if (
+          data.status === "paid" &&
+          data.generationId &&
+          !confirmedRef.current
+        ) {
           // Payment cleared and the generation is queued. Don't park the user on
           // a loader — tell them it started, then drop them in the gallery where
           // the placeholder card tracks progress. The global notifier fires the
           // "done" toast (with a tap-through) once it finishes.
           confirmedRef.current = true;
           notifyGenerationStarted();
-          toast.success(t("genStartedToast"), { description: t("genStartedToastDesc") });
+          toast.success(t("genStartedToast"), {
+            description: t("genStartedToastDesc"),
+          });
           router.push("/gallery");
         }
       } catch {
@@ -221,14 +316,26 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
   // Load the wallet balance once the user reaches the payment step.
   useEffect(() => {
     if (step === 3 && walletBalance === null) {
-      getWalletBalance().then(setWalletBalance).catch(() => setWalletBalance(0));
+      getWalletBalance()
+        .then(setWalletBalance)
+        .catch(() => setWalletBalance(0));
     }
   }, [step, walletBalance]);
 
   const buildFormData = () => {
     const formData = new FormData();
     formData.set("presetId", preset!.id);
-    formData.set("amountMnt", String(preset!.price_mnt));
+    // Server re-prices from the preset; this is only a hint for legacy callers.
+    formData.set(
+      "amountMnt",
+      String(
+        computeShareDiscount(
+          preset!.price_mnt,
+          preset!.public_discount_pct,
+          share,
+        ).paid,
+      ),
+    );
     formData.set("ratio", ratio);
     formData.set("background", selectedBg);
     formData.set("intensity", String(intensity));
@@ -242,7 +349,8 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
     confirmedRef.current = false;
     setPayment({ kind: "creating" });
     try {
-      const result: PaymentIntentResult = await createPaymentIntent(buildFormData());
+      const result: PaymentIntentResult =
+        await createPaymentIntent(buildFormData());
       setPayment({
         kind: "awaiting",
         paymentId: result.paymentId,
@@ -251,7 +359,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
         deepLinks: result.deepLinks,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа. Дахин оролдоно уу.");
+      toast.error(
+        err instanceof Error ? err.message : "Алдаа гарлаа. Дахин оролдоно уу.",
+      );
       setPayment({ kind: "idle" });
     }
   };
@@ -263,13 +373,19 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
     try {
       await payWithWallet(buildFormData());
       notifyGenerationStarted();
-      toast.success(t("genStartedToast"), { description: t("genStartedToastDesc") });
+      toast.success(t("genStartedToast"), {
+        description: t("genStartedToastDesc"),
+      });
       router.push("/gallery");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа. Дахин оролдоно уу.");
+      toast.error(
+        err instanceof Error ? err.message : "Алдаа гарлаа. Дахин оролдоно уу.",
+      );
       setPayment({ kind: "idle" });
       // Balance may have changed (or the debit raced) — refresh it.
-      getWalletBalance().then(setWalletBalance).catch(() => {});
+      getWalletBalance()
+        .then(setWalletBalance)
+        .catch(() => {});
     }
   };
 
@@ -292,7 +408,17 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
     );
   }
 
-  const price = preset.price_mnt;
+  // Sharing to the public feed earns the preset's discount; the price reflects
+  // the current toggle. The server re-prices authoritatively from the preset.
+  const pricing = computeShareDiscount(
+    preset.price_mnt,
+    preset.public_discount_pct,
+    share,
+  );
+  const price = pricing.paid;
+  const hasShareDiscount = preset.public_discount_pct > 0;
+  // The sharing discount as a whole percent — surfaced live next to the toggle.
+  const discountPct = preset.public_discount_pct;
   const insufficient = walletBalance !== null && walletBalance < price;
 
   return (
@@ -300,7 +426,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
       <div className="mx-auto max-w-2xl">
         {/* Back */}
         <button
-          onClick={() => (step > 1 ? setStep((s) => (s - 1) as Step) : router.back())}
+          onClick={() =>
+            step > 1 ? setStep((s) => (s - 1) as Step) : router.back()
+          }
           className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={14} /> {t("back")}
@@ -312,9 +440,13 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
             <p className="truncate text-sm text-muted-foreground">
               {lang === "mn" ? category.name_mn : category.name_en}
             </p>
-            <p className="truncate font-bold">{lang === "mn" ? preset.name_mn : preset.name_en}</p>
+            <p className="truncate font-bold">
+              {lang === "mn" ? preset.name_mn : preset.name_en}
+            </p>
           </div>
-          <span className="text-lg font-black text-primary">₮{preset.price_mnt.toLocaleString()}</span>
+          <span className="text-lg font-black text-primary">
+            ₮{preset.price_mnt.toLocaleString()}
+          </span>
         </div>
 
         {/* Step indicators */}
@@ -334,8 +466,8 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                       done
                         ? "bg-primary text-primary-foreground shadow-[2px_2px_4px_rgba(166,50,60,0.45),-2px_-2px_4px_rgba(255,107,117,0.45)] glow-brand-sm"
                         : active
-                        ? "bg-background text-primary shadow-(--shadow-floating) glow-brand-sm"
-                        : "bg-background text-muted-foreground shadow-(--shadow-card)"
+                          ? "bg-background text-primary shadow-(--shadow-floating) glow-brand-sm"
+                          : "bg-background text-muted-foreground shadow-(--shadow-card)",
                     )}
                   >
                     {done ? <Check size={12} /> : n}
@@ -343,7 +475,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                   <span
                     className={cn(
                       "hidden text-xs font-medium sm:block",
-                      active ? "text-foreground" : "text-muted-foreground"
+                      active ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
                     {label}
@@ -372,7 +504,10 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
             {preset.warnings_mn.length > 0 && (
               <div className="flex flex-col gap-1.5 rounded-xl border border-yellow-500/30 bg-yellow-50/50 p-3 dark:bg-yellow-900/10">
                 {preset.warnings_mn.map((w, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-sm text-yellow-800 dark:text-yellow-300">
+                  <div
+                    key={idx}
+                    className="flex items-start gap-2 text-sm text-yellow-800 dark:text-yellow-300"
+                  >
                     <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                     <span>{w}</span>
                   </div>
@@ -382,12 +517,15 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
             {/* ── Single multi-file dropzone; thumbnails live inside it ── */}
             <div
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               className={cn(
                 "rounded-2xl border-2 border-dashed p-4 transition-all",
-                dragOver ? "border-primary bg-primary/10" : "border-border"
+                dragOver ? "border-primary bg-primary/10" : "border-border",
               )}
             >
               {uploads.length === 0 ? (
@@ -401,7 +539,10 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     accept="image/*"
                     multiple
                     className="sr-only"
-                    onChange={(e) => { validateAndAddFiles(e.target.files); e.target.value = ""; }}
+                    onChange={(e) => {
+                      validateAndAddFiles(e.target.files);
+                      e.target.value = "";
+                    }}
                   />
                   <motion.div
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-muted"
@@ -412,10 +553,15 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                   <div>
                     <p className="font-semibold">{t("uploadDesc")}</p>
                     <p className="text-sm text-muted-foreground">
-                      {minUploads === maxUploads ? `${maxUploads} зураг` : `${minUploads}–${maxUploads} зураг`}
+                      {minUploads === maxUploads
+                        ? `${maxUploads} зураг`
+                        : `${minUploads}–${maxUploads} зураг`}
                     </p>
                   </div>
-                  <Badge variant="secondary" className="flex items-center gap-1 text-xs">
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1 text-xs"
+                  >
                     <Camera size={11} /> {t("cameraCapture")}
                   </Badge>
                 </label>
@@ -430,13 +576,23 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 28,
+                        }}
                         className="group relative aspect-square overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={URL.createObjectURL(file)} alt={file.name} className="h-full w-full object-cover" />
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="h-full w-full object-cover"
+                        />
                         <button
-                          onClick={() => setUploads((u) => u.filter((_, j) => j !== idx))}
+                          onClick={() =>
+                            setUploads((u) => u.filter((_, j) => j !== idx))
+                          }
                           className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
                           aria-label="Устгах"
                         >
@@ -453,7 +609,10 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                         accept="image/*"
                         multiple
                         className="sr-only"
-                        onChange={(e) => { validateAndAddFiles(e.target.files); e.target.value = ""; }}
+                        onChange={(e) => {
+                          validateAndAddFiles(e.target.files);
+                          e.target.value = "";
+                        }}
                       />
                       <Plus size={20} />
                       <span className="text-[10px] font-medium">Нэмэх</span>
@@ -465,10 +624,18 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
 
             {/* Example inputs */}
             <div>
-              <p className="mb-2 text-sm font-semibold text-muted-foreground">{t("exampleInputs")}</p>
+              <p className="mb-2 text-sm font-semibold text-muted-foreground">
+                {t("exampleInputs")}
+              </p>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 {preset.example_inputs.map((src, idx) => (
-                  <ExampleThumb key={idx} src={src} fallback={<CategoryGlyph category={category} className="size-8" />} />
+                  <ExampleThumb
+                    key={idx}
+                    src={src}
+                    fallback={
+                      <CategoryGlyph category={category} className="size-8" />
+                    }
+                  />
                 ))}
               </div>
             </div>
@@ -504,7 +671,7 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                         "rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
                         ratio === r
                           ? "border-primary bg-primary text-primary-foreground glow-brand-sm"
-                          : "border-border hover:border-primary/50"
+                          : "border-border hover:border-primary/50",
                       )}
                     >
                       {r}
@@ -523,7 +690,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                       height: previewAspect >= 1 ? "auto" : "3.5rem",
                     }}
                   >
-                    <span className="text-[9px] font-bold text-primary">{ratio}</span>
+                    <span className="text-[9px] font-bold text-primary">
+                      {ratio}
+                    </span>
                   </motion.div>
                 </div>
               </div>
@@ -534,44 +703,91 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <Label className="font-semibold">{t("styleIntensity")}</Label>
-                  <span className="text-sm font-bold text-primary">{intensity}%</span>
+                  <span className="text-sm font-bold text-primary">
+                    {intensity}%
+                  </span>
                 </div>
                 <Slider
                   min={0}
                   max={100}
                   step={10}
                   value={[intensity]}
-                  onValueChange={(v) => setIntensity(Array.isArray(v) ? (v as number[])[0] : (v as number))}
+                  onValueChange={(v) =>
+                    setIntensity(
+                      Array.isArray(v) ? (v as number[])[0] : (v as number),
+                    )
+                  }
                 />
               </div>
             )}
 
-            {/* Share-to-showcase toggle — off by default (private). */}
-            <div className="flex items-start justify-between gap-4 rounded-xl p-4 shadow-(--shadow-card)">
-              <div>
-                <p className="font-semibold">{t("shareToggle")}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t("shareToggleHelp")}</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={share}
-                aria-label={t("shareToggle")}
-                onClick={() => setShare(!share)}
-                className={cn(
-                  "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
-                  share
-                    ? "bg-primary"
-                    : "bg-muted shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]"
-                )}
-              >
-                <span
+            {/* Share-to-showcase toggle — off by default (private). When the
+                preset offers a sharing discount, show the price impact. */}
+            <div className="flex flex-col gap-3 rounded-xl p-4 shadow-(--shadow-card)">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-semibold">{t("shareToggle")}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {hasShareDiscount
+                      ? t("shareToggleHelpDiscount")
+                      : t("shareToggleHelp")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={share}
+                  aria-label={t("shareToggle")}
+                  onClick={() => setShare(!share)}
                   className={cn(
-                    "inline-block h-4 w-4 transform rounded-full bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)] transition-transform",
-                    share ? "translate-x-6" : "translate-x-1"
+                    "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
+                    share
+                      ? "bg-primary"
+                      : "bg-muted shadow-[inset_2px_2px_4px_var(--neu-dark),inset_-2px_-2px_4px_var(--neu-light)]",
                   )}
-                />
-              </button>
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-background shadow-[2px_2px_4px_var(--neu-dark),-2px_-2px_4px_var(--neu-light)] transition-transform",
+                      share ? "translate-x-6" : "translate-x-1",
+                    )}
+                  />
+                </button>
+              </div>
+
+              {hasShareDiscount && (
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm shadow-(--shadow-recessed)">
+                  {share ? (
+                    /* Toggle ON — discounted price + how much % is off */
+                    <>
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <span className="line-through">
+                          {formatMnt(pricing.full)}
+                        </span>
+                        <Badge variant="secondary" className="text-primary">
+                          −{discountPct}%
+                        </Badge>
+                      </span>
+                      <span className="font-black text-primary">
+                        {formatMnt(pricing.paid)}
+                      </span>
+                    </>
+                  ) : (
+                    /* Toggle OFF — full price, with the % nudge of what sharing saves */
+                    <>
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        {t("regularPriceLabel")}
+                        <Badge variant="secondary" className="text-primary">
+                          −{discountPct}%
+                        </Badge>
+                      </span>
+                      <span className="font-black text-foreground">
+                        {formatMnt(pricing.full)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             <Button
@@ -588,7 +804,6 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
         {/* ─── STEP 3: PAYMENT ─── */}
         {step === 3 && (
           <div className="flex flex-col gap-6">
-
             {/* ── Waiting for payment (QR shown) ─────────────────── */}
             {payment.kind === "awaiting" && (
               <>
@@ -606,23 +821,45 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{t("presetName")}</span>
-                      <span className="font-semibold">{lang === "mn" ? preset.name_mn : preset.name_en}</span>
+                      <span className="text-muted-foreground">
+                        {t("presetName")}
+                      </span>
+                      <span className="font-semibold">
+                        {lang === "mn" ? preset.name_mn : preset.name_en}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-sm mt-1">
-                      <span className="text-muted-foreground">{t("receiptOrderId")}</span>
-                      <span className="font-mono text-xs text-muted-foreground">{payment.orderId.slice(0, 8).toUpperCase()}</span>
+                      <span className="text-muted-foreground">
+                        {t("receiptOrderId")}
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {payment.orderId.slice(0, 8).toUpperCase()}
+                      </span>
                     </div>
+                    {pricing.discount > 0 && (
+                      <div className="mt-1 flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {t("discountLabel")}
+                        </span>
+                        <span className="font-semibold text-primary">
+                          −{formatMnt(pricing.discount)}
+                        </span>
+                      </div>
+                    )}
                     <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                       <span className="font-bold">{t("totalPrice")}</span>
-                      <span className="text-xl font-black text-primary">₮{preset.price_mnt.toLocaleString()}</span>
+                      <span className="text-xl font-black text-primary">
+                        {formatMnt(price)}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* QPay QR */}
                 <div className="flex flex-col items-center gap-3 rounded-2xl bg-muted p-6 shadow-(--shadow-recessed)">
-                  <p className="text-sm font-semibold text-muted-foreground">{t("qpayDesc")}</p>
+                  <p className="text-sm font-semibold text-muted-foreground">
+                    {t("qpayDesc")}
+                  </p>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {/* QR keeps a white quiet-zone so it stays scannable on the dark chassis. */}
                   <img
@@ -634,7 +871,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     <Loader2 size={12} className="animate-spin" />
                     <span>{t("paymentWaiting")}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground/70">{t("paymentAwaitDesc")}</p>
+                  <p className="text-[11px] text-muted-foreground/70">
+                    {t("paymentAwaitDesc")}
+                  </p>
                 </div>
 
                 {/* Bank deep links from QPay */}
@@ -673,12 +912,38 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{t("presetName")}</span>
-                      <span className="font-semibold">{lang === "mn" ? preset.name_mn : preset.name_en}</span>
+                      <span className="text-muted-foreground">
+                        {t("presetName")}
+                      </span>
+                      <span className="font-semibold">
+                        {lang === "mn" ? preset.name_mn : preset.name_en}
+                      </span>
                     </div>
+                    {pricing.discount > 0 && (
+                      <div className="mt-2 flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {t("regularPriceLabel")}
+                        </span>
+                        <span className="text-muted-foreground line-through">
+                          {formatMnt(pricing.full)}
+                        </span>
+                      </div>
+                    )}
+                    {pricing.discount > 0 && (
+                      <div className="mt-1 flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {t("discountLabel")}
+                        </span>
+                        <span className="font-semibold text-primary">
+                          −{formatMnt(pricing.discount)}
+                        </span>
+                      </div>
+                    )}
                     <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                       <span className="font-bold">{t("totalPrice")}</span>
-                      <span className="text-xl font-black text-primary">{formatMnt(price)}</span>
+                      <span className="text-xl font-black text-primary">
+                        {formatMnt(price)}
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -693,7 +958,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     onClick={() => setMethod("wallet")}
                     className={cn(
                       "flex items-center gap-3 rounded-xl border p-4 text-left transition-colors",
-                      method === "wallet" ? "border-primary bg-primary/5 glow-brand-sm" : "border-border hover:border-primary/40"
+                      method === "wallet"
+                        ? "border-primary bg-primary/5 glow-brand-sm"
+                        : "border-border hover:border-primary/40",
                     )}
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -705,7 +972,8 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                         <p className="text-xs text-muted-foreground">…</p>
                       ) : insufficient ? (
                         <p className="text-xs text-destructive">
-                          {t("insufficientBalance")} · {formatMnt(price - walletBalance)} {t("shortBy")}
+                          {t("insufficientBalance")} ·{" "}
+                          {formatMnt(price - walletBalance)} {t("shortBy")}
                         </p>
                       ) : (
                         <p className="text-xs text-muted-foreground">
@@ -713,7 +981,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                         </p>
                       )}
                     </div>
-                    {method === "wallet" && <Check size={18} className="shrink-0 text-primary" />}
+                    {method === "wallet" && (
+                      <Check size={18} className="shrink-0 text-primary" />
+                    )}
                   </button>
 
                   {/* QPay */}
@@ -722,7 +992,9 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     onClick={() => setMethod("qpay")}
                     className={cn(
                       "flex items-center gap-3 rounded-xl border p-4 text-left transition-colors",
-                      method === "qpay" ? "border-primary bg-primary/5 glow-brand-sm" : "border-border hover:border-primary/40"
+                      method === "qpay"
+                        ? "border-primary bg-primary/5 glow-brand-sm"
+                        : "border-border hover:border-primary/40",
                     )}
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -730,9 +1002,13 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{t("qpayTitle")}</p>
-                      <p className="text-xs text-muted-foreground">{t("qpayDesc")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("qpayDesc")}
+                      </p>
                     </div>
-                    {method === "qpay" && <Check size={18} className="shrink-0 text-primary" />}
+                    {method === "qpay" && (
+                      <Check size={18} className="shrink-0 text-primary" />
+                    )}
                   </button>
                 </div>
 
@@ -744,7 +1020,10 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     onCheckedChange={(v) => setTermsAccepted(!!v)}
                     className="mt-0.5"
                   />
-                  <Label htmlFor="terms" className="cursor-pointer text-sm leading-relaxed text-muted-foreground">
+                  <Label
+                    htmlFor="terms"
+                    className="cursor-pointer text-sm leading-relaxed text-muted-foreground"
+                  >
                     {t("termsCheckbox")}
                   </Label>
                 </div>
@@ -772,7 +1051,10 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                     variant="shadow"
                   >
                     {payment.kind === "creating" ? (
-                      <><Loader2 size={16} className="mr-2 animate-spin" /> {t("processing")}</>
+                      <>
+                        <Loader2 size={16} className="mr-2 animate-spin" />{" "}
+                        {t("processing")}
+                      </>
                     ) : method === "wallet" ? (
                       t("payWithWalletPay")
                     ) : (
@@ -782,7 +1064,6 @@ export default function GeneratePage({ params }: { params: Promise<{ presetId: s
                 )}
               </>
             )}
-
           </div>
         )}
       </div>
