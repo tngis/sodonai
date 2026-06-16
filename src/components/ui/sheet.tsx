@@ -21,7 +21,11 @@ function SheetBackdrop({ className, ...props }: DialogPrimitive.Backdrop.Props) 
     <DialogPrimitive.Backdrop
       data-slot="sheet-backdrop"
       className={cn(
-        "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // duration-300 + fill-mode-forwards on the exit keep the backdrop fading
+        // in lockstep with the 300ms popup (which gates unmount). Without it the
+        // backdrop's default .15s fade-out finishes early and — with fill-mode:none
+        // — snaps back to full opacity for the remaining 150ms (the close "flash").
+        "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm duration-300 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 data-closed:fill-mode-forwards",
         className
       )}
       {...props}
