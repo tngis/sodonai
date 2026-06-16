@@ -82,7 +82,7 @@ export default async function RootLayout({
     <html
       lang="mn"
       suppressHydrationWarning
-      className={`${manrope.variable} ${montserrat.variable} ${geistMono.variable} h-dvh antialiased${flat ? " flat" : ""}`}
+      className={`${manrope.variable} ${montserrat.variable} ${geistMono.variable} h-dvh overflow-hidden antialiased${flat ? " flat" : ""}`}
     >
       {/* suppressHydrationWarning: some browser extensions (e.g. ColorZilla adds
           cz-shortcut-listen) inject attributes on <body> before hydration. */}

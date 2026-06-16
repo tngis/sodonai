@@ -11,7 +11,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       position="top-center"
-      offset={16}
+      offset={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
       className="toaster group"
       icons={{
         // Icon colour is driven by the per-type status rail in globals.css

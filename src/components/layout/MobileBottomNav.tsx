@@ -61,7 +61,7 @@ export function MobileBottomNav() {
                 key={key}
                 href={href}
                 aria-current={isActive ? "page" : undefined}
-                className="flex flex-1 flex-col items-center justify-end gap-1 pb-4"
+                className="flex flex-1 flex-col items-center justify-end gap-1 pb-2"
               >
                 <motion.span
                   className={cn(
@@ -101,7 +101,7 @@ export function MobileBottomNav() {
                 }
               }}
               className={cn(
-                "flex flex-1 flex-col items-center justify-end gap-1 pb-4 text-[10px] font-medium transition-colors",
+                "flex flex-1 flex-col items-center justify-end gap-1 pb-2 text-[10px] font-medium transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )}
             >
