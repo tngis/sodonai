@@ -42,7 +42,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export function Header() {
   const { t, lang, setLang } = useLang();
-  const { isAuthed, profile } = useAuth();
+  const { isAuthed, loading, profile } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -143,7 +143,7 @@ export function Header() {
           <ThemeToggle className="hidden md:inline-flex" />
 
           {/* Logged out → direct Login CTA (funnel), all breakpoints. */}
-          {!isAuthed && (
+          {!isAuthed && !loading && (
             <Button
               render={<Link href="/auth" />}
               variant="shadow"
@@ -340,6 +340,13 @@ export function Header() {
                 <User size={18} />
               )}
             </button>
+          )}
+
+          {/* Neutral skeleton during the auth loading window — prevents the
+              wrong-state flash (signed-out CTA or nothing) before the session
+              cookie is read. Matches the avatar button's footprint. */}
+          {loading && (
+            <div className="size-10 animate-pulse rounded-full bg-muted" />
           )}
         </div>
       </div>
