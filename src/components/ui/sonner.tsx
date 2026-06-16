@@ -12,6 +12,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       position="top-center"
       offset={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
+      mobileOffset={{ top: "calc(env(safe-area-inset-top) + 16px)" }}
       className="toaster group"
       icons={{
         // Icon colour is driven by the per-type status rail in globals.css
