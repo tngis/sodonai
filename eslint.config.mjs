@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Capacitor native projects + webDir placeholder — not part of the Next app.
+    "ios/**",
+    "android/**",
+    "capacitor-shell/**",
   ]),
   {
     rules: {

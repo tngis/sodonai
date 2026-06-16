@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sodon AI</string>
+    <string name="title_activity_main">Sodon AI</string>
+    <string name="package_name">mn.sodonai.app.placeholder</string>
+    <string name="custom_url_scheme">mn.sodonai.app.placeholder</string>
+</resources>

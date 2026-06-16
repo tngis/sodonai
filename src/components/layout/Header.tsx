@@ -28,10 +28,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useUserGenerations } from "@/lib/use-generations";
 import { getLastSeen, markSeenNow } from "@/lib/notif-seen";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
 import { ThemeToggle } from "./theme-toggle";
+import { StyleToggle } from "./style-toggle";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function Header() {
@@ -68,6 +74,10 @@ export function Header() {
   // while viewing even though opening marks them seen (clearing the badge).
   const [panelSeen, setPanelSeen] = useState(0);
 
+  // Mobile-only account drawer (desktop uses the avatar dropdown). Handles both
+  // states: signed-in account menu, signed-out login prompt.
+  const [accountOpen, setAccountOpen] = useState(false);
+
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -93,7 +103,7 @@ export function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/70 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/70 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
@@ -128,10 +138,11 @@ export function Header() {
             {lang === "mn" ? "МН" : "EN"}
           </button>
 
-          {/* Theme toggle — physical rocker, desktop only */}
+          {/* Theme + UI-style toggles — physical rockers, desktop only */}
+          <StyleToggle className="hidden md:inline-flex" />
           <ThemeToggle className="hidden md:inline-flex" />
 
-          {/* Logged out → Login button (replaces bell + avatar) */}
+          {/* Logged out → direct Login CTA (funnel), all breakpoints. */}
           {!isAuthed && (
             <Button
               render={<Link href="/auth" />}
@@ -307,8 +318,117 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          {/* Mobile account button → account drawer (desktop uses the avatar
+              dropdown above). Signed-in only; signed-out uses the CTA above. */}
+          {isAuthed && (
+            <button
+              onClick={() => setAccountOpen(true)}
+              aria-label={t("accountMenu")}
+              className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-primary/30 to-primary/5 text-foreground ring-1 ring-border transition-all active:scale-95 md:hidden"
+            >
+              {avatarUrl ? (
+                <NextImage
+                  src={avatarUrl}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-full w-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <User size={18} />
+              )}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Mobile account drawer — signed-in account surface only. The signed-out
+          login prompt (<LoginPrompt>) is reserved for commit-time gates. */}
+      {isAuthed && (
+        <Sheet open={accountOpen} onOpenChange={setAccountOpen}>
+          <SheetContent showCloseButton={false} className="md:hidden">
+            <SheetTitle className="sr-only">{t("accountMenu")}</SheetTitle>
+            <div className="flex flex-col gap-1">
+              {/* Profile header */}
+              <div className="mb-1 flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-3">
+                <span className="flex size-11 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-primary/30 to-primary/5 ring-1 ring-border">
+                  {avatarUrl ? (
+                    <NextImage
+                      src={avatarUrl}
+                      alt=""
+                      width={44}
+                      height={44}
+                      className="h-full w-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <User size={20} />
+                  )}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">
+                    {profileName || t("welcomeBack")}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Sodon AI
+                  </p>
+                </div>
+              </div>
+
+              {menuLinks.map((m, i) => {
+                const active = i === activeMenuIndex;
+                return (
+                  <Link
+                    key={i}
+                    href={m.href}
+                    onClick={() => setAccountOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-2 py-2.5",
+                      active ? "bg-primary/10" : "active:bg-foreground/5",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex size-9 items-center justify-center rounded-lg",
+                        active
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground",
+                      )}
+                    >
+                      <m.icon size={17} />
+                    </span>
+                    <span
+                      className={cn(
+                        "text-sm font-medium",
+                        active && "text-primary",
+                      )}
+                    >
+                      {m.label}
+                    </span>
+                  </Link>
+                );
+              })}
+
+              <div className="my-1.5 h-px bg-border" />
+
+              <button
+                onClick={() => {
+                  setAccountOpen(false);
+                  handleSignOut();
+                }}
+                className="flex items-center gap-3 rounded-xl px-2 py-2.5 text-destructive active:bg-destructive/10"
+              >
+                <span className="flex size-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                  <LogOut size={17} />
+                </span>
+                <span className="text-sm font-medium">{t("signOut")}</span>
+              </button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
     </header>
   );
 }

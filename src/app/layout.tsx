@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Manrope, Montserrat, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -67,16 +68,21 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Flat-style preference is a cookie so we can apply the class on the server
+  // (before paint, no FOUC). next-themes manages the light/dark class on the
+  // client and never strips `flat`, so the two axes compose cleanly.
+  const flat = (await cookies()).get("ui-style")?.value === "flat";
+
   return (
     <html
       lang="mn"
       suppressHydrationWarning
-      className={`${manrope.variable} ${montserrat.variable} ${geistMono.variable} h-dvh antialiased`}
+      className={`${manrope.variable} ${montserrat.variable} ${geistMono.variable} h-dvh antialiased${flat ? " flat" : ""}`}
     >
       {/* suppressHydrationWarning: some browser extensions (e.g. ColorZilla adds
           cz-shortcut-listen) inject attributes on <body> before hydration. */}

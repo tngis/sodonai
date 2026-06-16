@@ -15,7 +15,7 @@ const buttonVariants = cva(
       variant: {
         // Accent key — safety orange with red-tinted neumorphic relief.
         default:
-          "bg-primary text-primary-foreground uppercase shadow-[4px_4px_8px_rgba(166,50,60,0.45),-4px_-4px_8px_rgba(255,107,117,0.45)] hover:brightness-110 active:translate-y-px active:shadow-[inset_4px_4px_8px_rgba(166,50,60,0.55),inset_-4px_-4px_8px_rgba(255,107,117,0.4)]",
+          "bg-primary text-primary-foreground uppercase shadow-(--shadow-key) hover:brightness-110 active:translate-y-px active:shadow-(--shadow-key-pressed)",
         // Chassis key — raised grey panel that depresses into the surface.
         secondary:
           "bg-background text-foreground shadow-(--shadow-card) hover:text-primary active:translate-y-px active:shadow-(--shadow-pressed)",
@@ -23,7 +23,7 @@ const buttonVariants = cva(
           "bg-background text-muted-foreground shadow-(--shadow-card) hover:text-foreground aria-expanded:text-foreground active:translate-y-px active:shadow-(--shadow-pressed)",
         // Alias kept for existing call sites — same accent key as default.
         shadow:
-          "bg-primary text-primary-foreground uppercase shadow-[4px_4px_8px_rgba(166,50,60,0.45),-4px_-4px_8px_rgba(255,107,117,0.45)] hover:brightness-110 active:translate-y-px active:shadow-[inset_4px_4px_8px_rgba(166,50,60,0.55),inset_-4px_-4px_8px_rgba(255,107,117,0.4)]",
+          "bg-primary text-primary-foreground uppercase shadow-(--shadow-key) hover:brightness-110 active:translate-y-px active:shadow-(--shadow-key-pressed)",
         // Flat label that sinks into a recessed well on hover/press.
         ghost:
           "text-muted-foreground hover:bg-muted hover:text-foreground hover:shadow-(--shadow-recessed) aria-expanded:bg-muted aria-expanded:text-foreground aria-expanded:shadow-(--shadow-recessed) active:shadow-(--shadow-pressed)",

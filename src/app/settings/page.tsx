@@ -21,8 +21,11 @@ import {
   Loader2,
   MapPin,
   User,
+  Layers,
+  Square,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
+import { useUiStyle } from "@/lib/use-ui-style";
 import { createClient } from "@/lib/supabase/client";
 import { exportUserData, deleteAccount } from "@/app/actions/account";
 import { AddressManager } from "@/components/settings/address-manager";
@@ -35,6 +38,7 @@ import { cn } from "@/lib/utils";
 export default function SettingsPage() {
   const { t, lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
+  const { flat, setFlat, mounted: styleMounted } = useUiStyle();
   const router = useRouter();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -171,6 +175,40 @@ export default function SettingsPage() {
                 <Icon size={20} /> {label}
               </motion.button>
             ))}
+          </div>
+        </section>
+
+        {/* UI style — flat vs neumorphic (orthogonal to light/dark). Active
+            state uses a solid fill so it reads in flat mode too, where the
+            relief shadow tokens resolve to none. */}
+        <section className="mb-6">
+          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <Layers size={12} /> {t("uiStyle")}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { value: false, label: t("uiStyleNeu"), icon: Layers },
+                { value: true, label: t("uiStyleFlat"), icon: Square },
+              ] as const
+            ).map(({ value, label, icon: Icon }) => {
+              const active = styleMounted && flat === value;
+              return (
+                <motion.button
+                  key={label}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setFlat(value)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-xl p-3 text-sm font-medium transition-all cursor-pointer",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)",
+                  )}
+                >
+                  <Icon size={20} /> {label}
+                </motion.button>
+              );
+            })}
           </div>
         </section>
 

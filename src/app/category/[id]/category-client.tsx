@@ -57,7 +57,7 @@ export default function CategoryClient({ initialCategory }: { initialCategory: C
         </Link>
 
         <div className="mb-8 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary text-3xl shadow-[4px_4px_8px_rgba(166,50,60,0.45),-4px_-4px_8px_rgba(255,107,117,0.45)] glow-brand-sm">
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-primary text-3xl shadow-(--shadow-key) glow-brand-sm">
             <CategoryIcon category={category} className="size-7 text-primary-foreground" />
           </div>
           <div>
@@ -100,7 +100,7 @@ export default function CategoryClient({ initialCategory }: { initialCategory: C
                         className={cn(
                           "rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
                           ratioFilter === f
-                            ? "bg-primary text-primary-foreground shadow-[4px_4px_8px_rgba(166,50,60,0.45),-4px_-4px_8px_rgba(255,107,117,0.45)] glow-brand-sm active:shadow-[inset_4px_4px_8px_rgba(166,50,60,0.55),inset_-4px_-4px_8px_rgba(255,107,117,0.4)]"
+                            ? "bg-primary text-primary-foreground shadow-(--shadow-key) glow-brand-sm active:shadow-(--shadow-key-pressed)"
                             : "bg-background text-muted-foreground shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)"
                         )}
                       >

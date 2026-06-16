@@ -464,7 +464,7 @@ export default function GeneratePage({
                     className={cn(
                       "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all",
                       done
-                        ? "bg-primary text-primary-foreground shadow-[2px_2px_4px_rgba(166,50,60,0.45),-2px_-2px_4px_rgba(255,107,117,0.45)] glow-brand-sm"
+                        ? "bg-primary text-primary-foreground shadow-(--shadow-key-sm) glow-brand-sm"
                         : active
                           ? "bg-background text-primary shadow-(--shadow-floating) glow-brand-sm"
                           : "bg-background text-muted-foreground shadow-(--shadow-card)",

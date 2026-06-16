@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -22,7 +22,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { type Category, type Preset } from "@/lib/catalog";
+import { LoginGate } from "@/components/auth/login-gate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -137,7 +139,21 @@ export default function PresetClient({
   preset: Preset;
 }) {
   const { t, lang } = useLang();
+  const { isAuthed, loading } = useAuth();
   const router = useRouter();
+
+  // Commit-time login gate: the CTA stays a real <Link> (keeps middle/cmd-click,
+  // new-tab, prefetch for the authed funnel) — we only intercept the signed-out
+  // tap to open the prompt instead of bouncing to /auth. The proxy still guards
+  // /generate/<id> server-side, so this is UX only.
+  const [gateOpen, setGateOpen] = useState(false);
+  const generateHref = `/generate/${preset.id}`;
+  const handleStart = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (!isAuthed && !loading) {
+      e.preventDefault();
+      setGateOpen(true);
+    }
+  };
 
   const name = lang === "mn" ? preset.name_mn : preset.name_en;
   const desc = lang === "mn" ? preset.description_mn : preset.description_en;
@@ -213,10 +229,10 @@ export default function PresetClient({
     },
   ];
 
-  // Single primary action → enters the 3-step generate flow.
+  // Single primary action → enters the 3-step generate flow (gated for guests).
   const startCta = (
     <Button
-      render={<Link href={`/generate/${preset.id}`} />}
+      render={<Link href={generateHref} onClick={handleStart} />}
       variant="shadow"
       size="lg"
       className="w-full justify-center rounded-full text-base font-black"
@@ -490,6 +506,8 @@ export default function PresetClient({
           <div className="flex-1">{startCta}</div>
         </div>
       </div>
+
+      <LoginGate open={gateOpen} onOpenChange={setGateOpen} next={generateHref} />
     </div>
   );
 }
