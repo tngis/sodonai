@@ -84,15 +84,35 @@
     --shadow-card: 8px 4px 16px #babecc, -4px -4px 8px #ffffff;
     /* Same geometry as --shadow-card at ~50% strength (alpha) — the soft tier. */
     --shadow-card-sm:
-        8px 4px 16px rgb(186 190 204 / 0.5), -4px -4px 8px rgb(255 255 255 / 0.5);
+        8px 4px 16px rgb(186 190 204 / 0.5),
+        -4px -4px 8px rgb(255 255 255 / 0.5);
     --shadow-card-xs:
-        8px 4px 16px rgb(186 190 204 / 0.3), -4px -4px 8px rgb(255 255 255 / 0.3);
+        8px 4px 16px rgb(186 190 204 / 0.3),
+        -4px -4px 8px rgb(255 255 255 / 0.3);
     --shadow-floating:
         12px 12px 24px #babecc, -12px -12px 24px #ffffff,
         inset 1px 1px 0 rgba(255, 255, 255, 0.5);
     --shadow-pressed: inset 6px 6px 12px #babecc, inset -6px -6px 12px #ffffff;
     --shadow-recessed: inset 4px 4px 8px #babecc, inset -4px -4px 8px #ffffff;
     --shadow-glow: 0 0 10px 2px rgba(255, 71, 87, 0.6);
+
+    /* Accent "key" relief — red-tinted dual shadow for primary (safety-orange)
+       buttons. Theme-independent (same red bevel in light + dark, so the .dark
+       block intentionally doesn't re-declare these), which also lets the .flat
+       variant null them in one place so primary keys go flat too. */
+    --shadow-key:
+        4px 4px 8px rgba(166, 50, 60, 0.45),
+        -4px -4px 8px rgba(255, 107, 117, 0.45);
+    --shadow-key-pressed:
+        inset 4px 4px 8px rgba(166, 50, 60, 0.55),
+        inset -4px -4px 8px rgba(255, 107, 117, 0.4);
+    /* Smaller variant for step badges / compact accent chips. */
+    --shadow-key-sm:
+        2px 2px 4px rgba(166, 50, 60, 0.45),
+        -2px -2px 4px rgba(255, 107, 117, 0.45);
+    /* Hard moulded-edge bevel for the raised bottom-nav keys. */
+    --shadow-key-bevel: 0 5px 0 0 #a6323c;
+    --shadow-key-bevel-pressed: 0 1px 0 0 #a6323c;
 
     --sidebar: #e0e5ec;
     --sidebar-foreground: #2d3436;
@@ -218,6 +238,83 @@
     --neu-beam: rgba(172, 172, 174, 0.5);
     --neu-glow: rgba(172, 172, 174, 0.25);
     --neu-ring: rgba(172, 172, 174, 0.4);
+}
+
+/* ── Flat style variant ──────────────────────────────────────────────
+   An orthogonal axis to light/dark: the `flat` class on <html> strips all
+   neumorphism (relief shadows, embossed text, gradient strokes) while the
+   :root / .dark definitions above stay untouched, so the app is fully
+   switchable. Persisted in the `ui-style` cookie and applied server-side
+   (root layout) so there's no flash. This block ONLY re-points tokens —
+   the few effects that inline their own shadows/backgrounds (and so can't
+   be neutralised via a variable) are overridden in the scoped rules below.
+   Works in both themes (it composes with .dark via `<html class="dark flat">`). */
+.flat {
+    /* Kill every relief shadow. NB: these tokens are consumed both standalone
+       (`shadow-(--shadow-card)`) and composed inside multi-value lists
+       (`shadow-[var(--shadow-recessed),0_0_0_2px_var(--ring)]`). A value of
+       `none` is invalid inside a comma list, which makes the WHOLE box-shadow
+       invalid-at-computed-value and silently drops co-located shadows like
+       focus rings. `0 0 transparent` is a valid no-op shadow that renders
+       nothing while keeping such compositions valid. */
+    --shadow-card: 0 0 transparent;
+    --shadow-card-sm: 0 0 transparent;
+    --shadow-card-xs: 0 0 transparent;
+    --shadow-pressed: 0 0 transparent;
+    --shadow-recessed: 0 0 transparent;
+    --shadow-glow: 0 0 transparent;
+    /* Accent-key relief (primary buttons, step badges, bottom-nav keys) — same
+       reasoning: flatten to a valid no-op so primary keys lose their bevel. */
+    --shadow-key: 0 0 transparent;
+    --shadow-key-pressed: 0 0 transparent;
+    --shadow-key-sm: 0 0 transparent;
+    --shadow-key-bevel: 0 0 transparent;
+    --shadow-key-bevel-pressed: 0 0 transparent;
+    /* Keep a minimal flat drop shadow so floating layers (dialogs, sheets,
+       popovers, toasts — all consume --shadow-floating) still lift off the page. */
+    --shadow-floating: 0 4px 12px rgb(0 0 0 / 0.08);
+
+    /* Flatten the preset-card (.neu-*) tokens: solid surfaces + a plain border
+       in place of the gradient stroke and dual-shadow relief. Both halves of
+       the neumorphic light pair go transparent so every inline neu relief
+       (card screws/vents, tabs, slider, checkbox, progress, segmented tabs,
+       admin nav — all use `shadow-[…var(--neu-dark)…var(--neu-light)…]`)
+       renders nothing without touching their offsets. */
+    --neu-stroke: var(--border);
+    --neu-card-shadow: 0 0 transparent;
+    --neu-extrude-bg: var(--card);
+    --neu-extrude-shadow: 0 0 transparent;
+    --neu-surface-hi: var(--card);
+    --neu-surface: var(--card);
+    --neu-light: transparent;
+    --neu-dark: transparent;
+}
+
+/* Scoped flat overrides for effects that inline their own shadow/background
+   (not expressible through the variables alone). Left unlayered so they win
+   over the layered @layer base/utilities rules they neutralise — including
+   the .dark variants — regardless of source order. */
+.flat .text-embossed {
+    text-shadow: none;
+}
+.flat .neu-card {
+    background-image: none;
+    background-color: var(--card);
+    border-color: var(--border);
+    box-shadow: none;
+}
+.flat .neu-card::before {
+    display: none;
+}
+.flat .neu-card:hover,
+.flat .group:focus-visible > .neu-card {
+    transform: none;
+    border-color: var(--brand);
+}
+/* No relief → no grain texture; drop the page + chassis film. */
+.flat body::after,
+.flat .chassis-surface::after {
+    display: none;
 }
 
 @layer base {

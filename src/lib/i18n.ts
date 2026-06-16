@@ -11,6 +11,10 @@ export const translations = {
     settings: "Тохиргоо",
     signOut: "Гарах",
     signIn: "Нэвтрэх",
+    accountMenu: "Хэрэглэгчийн цэс",
+    loginPromptTitle: "Нэвтэрч орно уу",
+    loginPromptDesc:
+      "Зураг үүсгэх, галлерейгээ хадгалах, захиалгаа хянахын тулд нэвтэрнэ үү.",
 
     // Home
     heroTitle: "Зураг засах, бүтээх",
@@ -260,6 +264,9 @@ export const translations = {
     themeLight: "Цайвар",
     themeDark: "Харанхуй",
     themeSystem: "Системийн",
+    uiStyle: "Хэв маяг",
+    uiStyleNeu: "Товойсон",
+    uiStyleFlat: "Хавтгай",
     account: "Бүртгэл",
     paymentMethods: "Төлбөрийн арга",
     privacy: "Нууцлал",
@@ -292,6 +299,10 @@ export const translations = {
     settings: "Settings",
     signOut: "Sign out",
     signIn: "Sign in",
+    accountMenu: "Account menu",
+    loginPromptTitle: "Sign in to continue",
+    loginPromptDesc:
+      "Sign in to create images, save your gallery, and track your orders.",
 
     heroTitle: "Edit and create photos",
     heroSubtitle: "AI designed for Mongolian users",
@@ -533,6 +544,9 @@ export const translations = {
     themeLight: "Light",
     themeDark: "Dark",
     themeSystem: "System",
+    uiStyle: "Style",
+    uiStyleNeu: "Embossed",
+    uiStyleFlat: "Flat",
     account: "Account",
     paymentMethods: "Payment methods",
     privacy: "Privacy",

@@ -191,7 +191,7 @@ export default function GalleryPage() {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); router.push(`/print?asset=${encodeURIComponent(img.storage_path)}`); }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[4px_4px_8px_rgba(166,50,60,0.45),-4px_-4px_8px_rgba(255,107,117,0.45)] transition-all hover:brightness-110 active:shadow-[inset_4px_4px_8px_rgba(166,50,60,0.55),inset_-4px_-4px_8px_rgba(255,107,117,0.4)]"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-(--shadow-key) transition-all hover:brightness-110 active:shadow-(--shadow-key-pressed)"
                     aria-label={t("orderPrint")}
                   >
                     <Frame size={14} />

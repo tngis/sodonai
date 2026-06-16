@@ -244,7 +244,7 @@ export default function AuthPage() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-start gap-2.5 rounded-xl bg-primary/10 px-4 py-3 text-sm shadow---shadow-card)"
+            className="mb-6 flex items-start gap-2.5 rounded-xl bg-primary/10 px-4 py-3 text-sm shadow-(--shadow-card)"
           >
             <Sparkles size={16} className="mt-0.5 shrink-0 text-primary" />
             <span className="font-medium">{t("loginRequired")}</span>

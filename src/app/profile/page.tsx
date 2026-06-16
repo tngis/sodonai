@@ -135,7 +135,7 @@ export default function ProfilePage() {
                     onClick={saveName}
                     disabled={savingName}
                     aria-label={t("saveChanges")}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[4px_4px_8px_rgba(166,50,60,0.45),-4px_-4px_8px_rgba(255,107,117,0.45)] transition-all hover:brightness-110 active:translate-y-px active:shadow-[inset_4px_4px_8px_rgba(166,50,60,0.55),inset_-4px_-4px_8px_rgba(255,107,117,0.4)] disabled:opacity-60"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-(--shadow-key) transition-all hover:brightness-110 active:translate-y-px active:shadow-(--shadow-key-pressed) disabled:opacity-60"
                   >
                     {savingName ? <Loader2 size={15} className="animate-spin" /> : <Check size={16} />}
                   </button>

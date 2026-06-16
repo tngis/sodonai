@@ -486,7 +486,7 @@ export function PresetManager({
           if (!open) setEditing(null);
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl scrollbar-hide">
           {editing && (
             <>
               <DialogHeader>

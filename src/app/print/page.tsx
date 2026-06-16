@@ -338,7 +338,9 @@ function PrintConfigurator() {
       </div>
 
       {/* ── Sticky price + confirm bar ── */}
-      <div className="fixed inset-x-0 bottom-16 z-40 border-t border-border bg-background/90 backdrop-blur-lg md:bottom-0">
+      {/* Sits above the mobile bottom nav, which is h-16 PLUS its safe-area pad —
+          so clear both, else the bar overlaps the nav on notched devices. */}
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 border-t border-border bg-background/90 backdrop-blur-lg md:bottom-0">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom))] md:px-6">
           <div>
             <p className="text-xs text-muted-foreground">
@@ -369,7 +371,7 @@ function PrintConfigurator() {
             onClick={() => setPayment({ kind: "idle" })}
           >
             <motion.div
-              className="chassis-surface relative w-full max-w-md rounded-t-3xl p-6 shadow-(--shadow-floating) sm:rounded-3xl"
+              className="chassis-surface relative w-full max-w-md rounded-t-3xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-(--shadow-floating) sm:rounded-3xl sm:pb-6"
               initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -430,7 +432,7 @@ function Section({ step, title, hint, children }: { step: number; title: string;
   return (
     <div className="mb-6">
       <div className="mb-3 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-[2px_2px_4px_rgba(166,50,60,0.45),-2px_-2px_4px_rgba(255,107,117,0.45)] glow-brand-sm">{step}</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-(--shadow-key-sm) glow-brand-sm">{step}</span>
         <h2 className="text-lg font-bold">{title}</h2>
       </div>
       {hint && <p className="mb-3 -mt-1 ml-8 text-sm text-muted-foreground">{hint}</p>}

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="mn">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Sodon AI</title>
+    <style>
+      :root { color-scheme: light dark; }
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #24272c;
+        color: #e6e9ed;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      .wrap {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: max(env(safe-area-inset-top), 1rem) 1.5rem
+                 max(env(safe-area-inset-bottom), 1rem);
+        text-align: center;
+      }
+      .dot {
+        width: 14px; height: 14px; border-radius: 9999px;
+        background: #ff4757;
+        box-shadow: 0 0 16px 2px rgba(255, 71, 87, 0.6);
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+      p { margin: 0; font-size: 0.95rem; opacity: 0.85; }
+      small { opacity: 0.5; font-size: 0.8rem; }
+    </style>
+  </head>
+  <body>
+    <!--
+      Capacitor `webDir` placeholder. The app loads the hosted SSR site via
+      `server.url` (https://aistudio.mn), so this page is NOT served while online.
+      It only shows if the native shell can't reach the remote app (e.g. no
+      network on first launch). Intentionally dependency-free and tiny.
+    -->
+    <div class="wrap">
+      <span class="dot" aria-hidden="true"></span>
+      <p>Холбогдож байна…</p>
+      <small>Sodon AI</small>
+    </div>
+  </body>
+</html>
