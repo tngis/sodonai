@@ -22,5 +22,9 @@ export async function getOutputUrls(paths: string[]): Promise<string[]> {
     if (path.split("/")[0] !== user.id) throw new Error("Хандах эрхгүй зам.");
   }
 
-  return getSignedUrls(OUTPUTS_BUCKET, paths, 3600);
+  // Stable presigning: returns the same URL string for an object within the
+  // current window, so the browser caches the image across gallery visits
+  // instead of re-downloading it on every navigation. (expiresIn is ignored in
+  // stable mode — the window expiry is used.)
+  return getSignedUrls(OUTPUTS_BUCKET, paths, undefined, { stable: true });
 }

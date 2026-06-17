@@ -105,9 +105,36 @@ export async function storeOutputFile(
       Key: path,
       Body: new Uint8Array(buffer),
       ContentType: contentType,
+      // Outputs are immutable — keyed by generationId/index and never
+      // overwritten — so let the browser/CDN cache them forever. Pairs with the
+      // deterministic ("stable") presigned URL from getSignedUrls: a stable URL
+      // with no Cache-Control still wouldn't be reused by the browser.
+      CacheControl: "public, max-age=31536000, immutable",
     })
   );
   return path;
+}
+
+// ── Deterministic ("stable") presigned URLs ──────────────────────────────────
+// Gallery/output images are presigned on every page load. With a fresh signing
+// time each call, the URL string (incl. its X-Amz-Date/Signature query) changes,
+// so the browser HTTP cache — keyed on the full URL — never hits and re-downloads
+// every image when you open one and navigate back. Pinning the SigV4 signing
+// date to a rounded window makes the URL byte-identical for the same
+// (bucket, path) within that window, so the cache finally hits.
+//
+// INVARIANT: STABLE_WINDOW_MS must be < STABLE_EXPIRY (expressed in ms). A URL
+// minted at the very END of a window is still signed as of the window START, so
+// its lifetime must outlast the remainder of the window plus real viewing time.
+// 1-day window / 7-day expiry → a tail-edge URL is still valid for ~6 more days.
+// (7 days = 604800s is also the SigV4 maximum expiry, so don't raise it.)
+const STABLE_WINDOW_MS = 24 * 60 * 60 * 1000; // 1 day
+const STABLE_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days (SigV4 max)
+
+// Start of the current window — used as the fixed SigV4 signing date so repeat
+// calls within the window produce the identical URL string.
+function stableSigningDate(): Date {
+  return new Date(Math.floor(Date.now() / STABLE_WINDOW_MS) * STABLE_WINDOW_MS);
 }
 
 // Batch-generate presigned GET URLs for private objects (server-side only).
@@ -118,14 +145,23 @@ export async function storeOutputFile(
 // Per-item resilience: a failed path yields "" instead of rejecting the whole
 // batch (the old Supabase createSignedUrls contract — gallery/print render a
 // placeholder for ""). Callers that need every URL must check for "".
+//
+// `stable` (opt-in): deterministic, browser-cacheable URLs for display surfaces
+// (see stableSigningDate). It forces the long window expiry and ignores the
+// `expiresIn` arg; non-stable callers (e.g. the 900s AI upload reads) are
+// unchanged and keep a fresh URL per call.
 export async function getSignedUrls(
   bucket: string,
   paths: string[],
-  expiresIn = 3600
+  expiresIn = 3600,
+  { stable = false }: { stable?: boolean } = {}
 ): Promise<string[]> {
+  const signingDate = stable ? stableSigningDate() : undefined;
+  const effectiveExpiry = stable ? STABLE_EXPIRY_SECONDS : expiresIn;
+
   return Promise.all(
     paths.map((path) =>
-      signOne(bucket, path, expiresIn).catch((err) => {
+      signOne(bucket, path, effectiveExpiry, signingDate).catch((err) => {
         console.error(`getSignedUrls: ${bucket}/${path}: ${err instanceof Error ? err.message : err}`);
         return "";
       })
@@ -133,12 +169,25 @@ export async function getSignedUrls(
   );
 }
 
-async function signOne(bucket: string, path: string, expiresIn: number): Promise<string> {
+async function signOne(
+  bucket: string,
+  path: string,
+  expiresIn: number,
+  signingDate?: Date
+): Promise<string> {
   if (await existsInR2(bucket, path)) {
-    return presign(r2(), new GetObjectCommand({ Bucket: bucket, Key: path }), { expiresIn });
+    // signingDate (when provided) pins X-Amz-Date so the presigned URL is
+    // deterministic for the same (bucket, path) within the window.
+    return presign(
+      r2(),
+      new GetObjectCommand({ Bucket: bucket, Key: path }),
+      signingDate ? { expiresIn, signingDate } : { expiresIn }
+    );
   }
   // Transition-only fallback. Bucket names match between R2 and Supabase, so the
-  // same `bucket` value works against Supabase Storage.
+  // same `bucket` value works against Supabase Storage. It can't pin the signing
+  // time, so these URLs still vary per call — acceptable: nearly everything is in
+  // R2 and the fallback is on its way out.
   const admin = createAdminClient();
   const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, expiresIn);
   if (error || !data) {

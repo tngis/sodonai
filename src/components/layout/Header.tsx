@@ -15,7 +15,7 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
@@ -39,6 +39,7 @@ import { NotificationsPanel } from "@/components/notifications/notifications-pan
 import { ThemeToggle } from "./theme-toggle";
 import { StyleToggle } from "./style-toggle";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEscapeRegister } from "@/hooks/use-overlay-escape";
 
 export function Header() {
   const { t, lang, setLang } = useLang();
@@ -77,6 +78,8 @@ export function Header() {
   // Mobile-only account drawer (desktop uses the avatar dropdown). Handles both
   // states: signed-in account menu, signed-out login prompt.
   const [accountOpen, setAccountOpen] = useState(false);
+  const closeAccountDrawer = useCallback(() => setAccountOpen(false), []);
+  useEscapeRegister(accountOpen, closeAccountDrawer);
 
   const handleSignOut = async () => {
     const supabase = createClient();

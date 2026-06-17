@@ -5,7 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "motion/react";
-import { Download, Share2, Frame, AlertTriangle, Loader2, UserRound, Eye, ImageOff } from "lucide-react";
+import {
+  Download,
+  Share2,
+  Frame,
+  AlertTriangle,
+  Loader2,
+  UserRound,
+  Eye,
+  ImageOff,
+} from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { getOutputUrls } from "@/app/actions/storage";
@@ -20,7 +29,11 @@ import { toast } from "sonner";
 // counter; it's replaced by the real image once the generation finishes.
 function GeneratingCard({ createdAt }: { createdAt: string }) {
   const { t, lang } = useLang();
-  const elapsedOf = () => Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000));
+  const elapsedOf = () =>
+    Math.max(
+      0,
+      Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000),
+    );
   const [elapsed, setElapsed] = useState(elapsedOf);
   useEffect(() => {
     const id = setInterval(() => setElapsed(elapsedOf()), 1000);
@@ -31,7 +44,8 @@ function GeneratingCard({ createdAt }: { createdAt: string }) {
     <div className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl shadow-(--shadow-recessed)">
       <Loader2 size={22} className="animate-spin text-primary" />
       <p className="px-2 text-center text-xs font-medium text-muted-foreground">
-        {t("generating")} · {elapsed}{lang === "mn" ? "с" : "s"}
+        {t("generating")} · {elapsed}
+        {lang === "mn" ? "с" : "s"}
       </p>
     </div>
   );
@@ -61,9 +75,14 @@ export default function GalleryPage() {
     const supabase = createClient();
     // getSession reads the local session (no network round-trip); the assets
     // query below is RLS-scoped, so ownership is still enforced server-side.
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const user = session?.user;
-    if (!user) { setLoading(false); return; }
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const { data: assets } = await supabase
       .from("assets")
@@ -74,13 +93,19 @@ export default function GalleryPage() {
     if (assets && assets.length > 0) {
       const paths = assets.map((a) => a.storage_path);
       const signed = await getOutputUrls(paths);
-      const urlMap = Object.fromEntries(signed.map((url, i) => [paths[i], url]));
-      setGallery(assets.map((a) => ({ ...a, signedUrl: urlMap[a.storage_path] ?? "" })));
+      const urlMap = Object.fromEntries(
+        signed.map((url, i) => [paths[i], url]),
+      );
+      setGallery(
+        assets.map((a) => ({ ...a, signedUrl: urlMap[a.storage_path] ?? "" })),
+      );
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // When the number of running generations drops, a new result is ready — refresh.
   useEffect(() => {
@@ -98,7 +123,9 @@ export default function GalleryPage() {
 
   const handleShare = async (url: string) => {
     if (navigator.share) {
-      try { await navigator.share({ url, title: "aistudio.mn — AI зураг" }); } catch {}
+      try {
+        await navigator.share({ url, title: "aistudio.mn — AI зураг" });
+      } catch {}
     } else {
       await navigator.clipboard.writeText(url);
       toast.success("Линк хуулагдлаа.");
@@ -122,11 +149,15 @@ export default function GalleryPage() {
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-6 font-display text-2xl font-black tracking-tight text-embossed md:text-3xl">{t("myGallery")}</h1>
+        <h1 className="mb-6 font-display text-2xl font-black tracking-tight text-embossed md:text-3xl">
+          {t("myGallery")}
+        </h1>
 
         {loading ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-xl" />)}
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-square rounded-xl" />
+            ))}
           </div>
         ) : active.length > 0 || gallery.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -138,10 +169,17 @@ export default function GalleryPage() {
                 key={img.id}
                 initial={{ opacity: 0, scale: 0.92 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.35, delay: Math.min(i * 0.04, 0.4), ease: [0.22, 1, 0.36, 1] }}
+                transition={{
+                  duration: 0.35,
+                  delay: Math.min(i * 0.04, 0.4),
+                  ease: [0.22, 1, 0.36, 1],
+                }}
                 whileHover={{ y: -3 }}
                 className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10"
-                onClick={() => img.generation_id && router.push(`/output?id=${img.generation_id}`)}
+                onClick={() =>
+                  img.generation_id &&
+                  router.push(`/output?id=${img.generation_id}`)
+                }
               >
                 {img.signedUrl ? (
                   <Image
@@ -154,7 +192,10 @@ export default function GalleryPage() {
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <AlertTriangle size={20} className="text-muted-foreground" />
+                    <AlertTriangle
+                      size={20}
+                      className="text-muted-foreground"
+                    />
                   </div>
                 )}
                 {/* Public-showcase indicator — only on shared images. */}
@@ -168,21 +209,30 @@ export default function GalleryPage() {
                 )}
                 <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDownload(img.signedUrl, i); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(img.signedUrl, i);
+                    }}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label="Татах"
                   >
                     <Download size={14} />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleShare(img.signedUrl); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare(img.signedUrl);
+                    }}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label="Хуваалцах"
                   >
                     <Share2 size={14} />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleSetProfile(img.storage_path); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSetProfile(img.storage_path);
+                    }}
                     disabled={settingAvatar}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed) disabled:opacity-60"
                     aria-label={t("setAsProfilePicture")}
@@ -190,7 +240,12 @@ export default function GalleryPage() {
                     <UserRound size={14} />
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); router.push(`/print?asset=${encodeURIComponent(img.storage_path)}`); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(
+                        `/print?asset=${encodeURIComponent(img.storage_path)}`,
+                      );
+                    }}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-(--shadow-key) transition-all hover:brightness-110 active:shadow-(--shadow-key-pressed)"
                     aria-label={t("orderPrint")}
                   >
@@ -202,9 +257,17 @@ export default function GalleryPage() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <ImageOff size={40} className="text-muted-foreground/50" strokeWidth={1.5} />
+            <ImageOff
+              size={40}
+              className="text-muted-foreground/50"
+              strokeWidth={1.5}
+            />
             <p className="text-muted-foreground">{t("noImages")}</p>
-            <Button render={<Link href="/generate" />} size="sm" className="rounded-full">
+            <Button
+              render={<Link href="/generate" />}
+              size="sm"
+              className="rounded-full"
+            >
               {t("startGenerating")}
             </Button>
           </div>
