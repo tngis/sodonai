@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
@@ -8,6 +8,7 @@ import { Home, Image, ShoppingBag, Sparkles, User } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginGate } from "@/components/auth/login-gate";
+import { useEscapeRegister } from "@/hooks/use-overlay-escape";
 import { cn } from "@/lib/utils";
 
 type Item = {
@@ -37,6 +38,8 @@ export function MobileBottomNav() {
   // /gallery + /orders, and /profile keeps its own client redirect).
   const [gateOpen, setGateOpen] = useState(false);
   const [gateNext, setGateNext] = useState<string | undefined>(undefined);
+  const closeGate = useCallback(() => setGateOpen(false), []);
+  useEscapeRegister(gateOpen, closeGate);
 
   const isActiveFor = (item: Item) =>
     item.href === "/"

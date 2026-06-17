@@ -17,6 +17,7 @@ import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { cn, saveImageToDevice } from "@/lib/utils";
+import { useEscapeRegister } from "@/hooks/use-overlay-escape";
 
 interface GenerationResult {
   id: string;
@@ -38,6 +39,8 @@ function OutputContent() {
   const [resultPaths, setResultPaths] = useState<(string | null)[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
+  const closePreview = useCallback(() => setPreviewIdx(null), []);
+  useEscapeRegister(previewIdx !== null, closePreview);
   const [celebrate, setCelebrate] = useState(false);
   // Is this generation CURRENTLY public? true → show the "hide from feed" action
   // (the only post-generation visibility control). false/null → private (never
@@ -50,6 +53,8 @@ function OutputContent() {
   // was generated via the no-pay path.
   const [unshareCost, setUnshareCost] = useState(0);
   const [confirmUnshare, setConfirmUnshare] = useState(false);
+  const closeConfirmUnshare = useCallback(() => setConfirmUnshare(false), []);
+  useEscapeRegister(confirmUnshare, closeConfirmUnshare);
 
   const load = useCallback(async () => {
     if (!generationId) { setLoading(false); return; }

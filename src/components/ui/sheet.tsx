@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 
 // Bottom-anchored mobile sheet (drawer) built on Base UI's Dialog. Reuses the
 // dialog's modal behaviour (focus trap, scroll lock, backdrop/Esc dismiss) but
-// slides up from the bottom edge — the native pattern for phones / Capacitor.
+// slides up from the bottom edge — the native pattern for phones.
 // Safe-area-aware bottom padding is baked into SheetContent so any consumer
 // (account menu, future login gates, payment sheets) clears the home indicator.
 const Sheet = DialogPrimitive.Root

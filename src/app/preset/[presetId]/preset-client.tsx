@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode, type MouseEvent } from "react";
+import { useState, useCallback, type ReactNode, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -33,6 +33,7 @@ import { Reveal, RevealItem, RevealStagger } from "@/components/motion/reveal";
 import { FavoriteButton } from "@/components/favorite-button";
 import { BeforeAfter } from "@/components/before-after";
 import { cn } from "@/lib/utils";
+import { useEscapeRegister } from "@/hooks/use-overlay-escape";
 
 // One result-preview image with a graceful fallback chain (result → category
 // preview → clean placeholder) and a click-to-zoom lightbox.
@@ -55,6 +56,8 @@ function ResultPreview({
   const [zoom, setZoom] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const src = candidates[idx];
+  const closeZoom = useCallback(() => setZoom(false), []);
+  useEscapeRegister(zoom, closeZoom);
 
   return (
     <figure className="mx-auto w-full max-w-sm">
@@ -147,6 +150,8 @@ export default function PresetClient({
   // tap to open the prompt instead of bouncing to /auth. The proxy still guards
   // /generate/<id> server-side, so this is UX only.
   const [gateOpen, setGateOpen] = useState(false);
+  const closeGate = useCallback(() => setGateOpen(false), []);
+  useEscapeRegister(gateOpen, closeGate);
   const generateHref = `/generate/${preset.id}`;
   const handleStart = (e: MouseEvent<HTMLAnchorElement>) => {
     if (!isAuthed && !loading) {

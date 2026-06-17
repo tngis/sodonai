@@ -7,6 +7,7 @@ import { useLang } from "@/contexts/LanguageContext";
 import { getWalletBalance, getWalletTransactions, type WalletTransaction } from "@/app/actions/wallet";
 import { formatMnt } from "@/lib/wallet";
 import { TopUpDialog } from "@/components/wallet/topup-dialog";
+import { useEscapeRegister } from "@/hooks/use-overlay-escape";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,8 @@ export default function WalletPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [txns, setTxns] = useState<WalletTransaction[] | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const closeTopUp = useCallback(() => setTopUpOpen(false), []);
+  useEscapeRegister(topUpOpen, closeTopUp);
 
   const loadTxns = useCallback(() => {
     getWalletTransactions().then(setTxns).catch(() => setTxns([]));
