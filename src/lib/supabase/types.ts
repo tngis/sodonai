@@ -57,6 +57,7 @@ export interface Database {
           image_url: string | null;
           sort_order: number;
           is_active: boolean;
+          aspect_ratio: string | null;
           created_at: string;
         };
         Insert: {
@@ -69,6 +70,7 @@ export interface Database {
           image_url?: string | null;
           sort_order?: number;
           is_active?: boolean;
+          aspect_ratio?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["categories"]["Insert"]>;

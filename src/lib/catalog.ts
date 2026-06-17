@@ -22,6 +22,16 @@ export interface Category {
   image_url: string | null;
   sort_order: number;
   is_active: boolean;
+  /** Aspect ratio shared by most of the category's presets (e.g. "4:5"); null if unset. */
+  aspect_ratio: string | null;
+}
+
+// Convert a ratio label ("4:5", "16:9") to a CSS aspect-ratio value ("4 / 5").
+// Returns null for "Original"/empty/unknown so callers can pick their own fallback.
+export function ratioToCss(ratio: string | null | undefined): string | null {
+  if (!ratio) return null;
+  const m = ratio.match(/^\s*(\d+)\s*[:/]\s*(\d+)\s*$/);
+  return m ? `${m[1]} / ${m[2]}` : null;
 }
 
 export interface Preset {

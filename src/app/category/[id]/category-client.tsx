@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Clock, Ratio, Loader2 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
-import { type CategoryWithPresets } from "@/lib/catalog";
+import { ratioToCss, type CategoryWithPresets } from "@/lib/catalog";
 import { listFavoriteIds } from "@/app/actions/favorites";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,10 @@ export default function CategoryClient({ initialCategory }: { initialCategory: C
   // card here is shown as a comparison slider regardless of the per-preset
   // example_type (which still drives the other categories).
   const forceBeforeAfter = category.id === "cat-restoration";
+
+  // Every card's image area uses the category's aspect ratio (null when unset or
+  // "Original" — then we keep the fixed-height fallbacks below).
+  const cardAspect = ratioToCss(category.aspect_ratio);
 
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
@@ -117,14 +121,22 @@ export default function CategoryClient({ initialCategory }: { initialCategory: C
                   {/* ── Admin chooses per preset: before/after slider or a single image.
                        Restoration always uses the slider (see forceBeforeAfter). ── */}
                   {preset.example_type === "before_after" || forceBeforeAfter ? (
-                    <BeforeAfter
-                      before={preset.example_before || preset.example_inputs[0] || ""}
-                      after={preset.example_output}
-                      fallback={<CategoryGlyph category={category} className="size-12 text-muted-foreground" />}
-                      className="h-52"
-                    />
+                    <div
+                      className={cn("w-full", !cardAspect && "h-52")}
+                      style={cardAspect ? { aspectRatio: cardAspect } : undefined}
+                    >
+                      <BeforeAfter
+                        before={preset.example_before || preset.example_inputs[0] || ""}
+                        after={preset.example_output}
+                        fallback={<CategoryGlyph category={category} className="size-12 text-muted-foreground" />}
+                        className="h-full w-full"
+                      />
+                    </div>
                   ) : (
-                    <div className="h-96 overflow-hidden bg-muted">
+                    <div
+                      className={cn("overflow-hidden bg-muted", !cardAspect && "h-96")}
+                      style={cardAspect ? { aspectRatio: cardAspect } : undefined}
+                    >
                       <PresetCardImage
                         src={preset.example_output}
                         alt={lang === "mn" ? preset.name_mn : preset.name_en}

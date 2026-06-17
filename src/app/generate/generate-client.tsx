@@ -17,7 +17,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
-import { type CategoryWithPresets, type Preset } from "@/lib/catalog";
+import { ratioToCss, type CategoryWithPresets, type Preset } from "@/lib/catalog";
 import { listFavoriteIds } from "@/app/actions/favorites";
 import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -27,9 +27,11 @@ import { cn } from "@/lib/utils";
 // Max presets shown inline per category row; the rest live behind "See all".
 const ROW_LIMIT = 6;
 
-// Every card in the row uses ONE aspect ratio so they're all the same size,
-// regardless of each preset's native output ratio. object-cover crops the image
-// to fill it (no letterboxing). The true ratio is still shown on the detail page.
+// Fallback poster ratio when the category has no aspect_ratio set (or it's
+// "Original"/unknown). Every card in a row uses ONE ratio — the category's —
+// so they're all the same size regardless of each preset's native output ratio.
+// object-cover crops to fill (no letterboxing); the true ratio is still shown
+// on the detail page.
 const CARD_ASPECT = "4 / 5";
 
 // Result image — the wrapper carries the preset's aspect ratio, so object-cover
@@ -93,6 +95,8 @@ function PresetCard({
 }) {
   const { t, lang } = useLang();
   const name = lang === "mn" ? preset.name_mn : preset.name_en;
+  // All cards in this category's row share the category's aspect ratio.
+  const cardAspect = ratioToCss(cat.aspect_ratio) ?? CARD_ASPECT;
 
   return (
     <Link
@@ -104,7 +108,7 @@ function PresetCard({
       <Card className="neu-card overflow-visible rounded-xl bg-transparent ring-0 text-(--neu-text)">
         <div
           className="relative w-full overflow-hidden rounded-t-[23px] bg-(--neu-surface-hi)"
-          style={{ aspectRatio: CARD_ASPECT }}
+          style={{ aspectRatio: cardAspect }}
         >
           <PosterImage
             src={preset.example_output}
