@@ -298,6 +298,7 @@ export interface Database {
           user_id: string;
           generation_id: string | null;
           storage_path: string;
+          thumb_path: string | null;
           is_private: boolean;
           created_at: string;
         };
@@ -306,10 +307,12 @@ export interface Database {
           user_id: string;
           generation_id?: string | null;
           storage_path: string;
+          thumb_path?: string | null;
           is_private?: boolean;
           created_at?: string;
         };
         Update: {
+          thumb_path?: string | null;
           is_private?: boolean;
         };
         Relationships: [

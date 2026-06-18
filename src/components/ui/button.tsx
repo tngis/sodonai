@@ -26,7 +26,7 @@ const buttonVariants = cva(
           "bg-primary text-primary-foreground uppercase shadow-(--shadow-key) hover:brightness-110 active:translate-y-px active:shadow-(--shadow-key-pressed)",
         // Flat label that sinks into a recessed well on hover/press.
         ghost:
-          "text-muted-foreground hover:bg-muted hover:text-foreground hover:shadow-(--shadow-recessed) aria-expanded:bg-muted aria-expanded:text-foreground aria-expanded:shadow-(--shadow-recessed) active:shadow-(--shadow-pressed)",
+          "text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground active:shadow-(--shadow-pressed)",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:ring-destructive/40 active:translate-y-px dark:bg-destructive/20 dark:hover:bg-destructive/30",
         link: "text-primary underline-offset-4 hover:underline",

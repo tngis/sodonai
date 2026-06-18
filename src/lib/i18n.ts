@@ -48,6 +48,7 @@ export const translations = {
     namePlaceholder: "Таны нэр",
     continueBtn: "Үргэлжлүүлэх",
     welcomeBack: "Тавтай морил",
+    viewProfile: "Профайлаа харах",
     loginRequired: "Та зураг үүсгэхийн тулд нэвтрэх ёстой",
 
     // Category
@@ -135,7 +136,7 @@ export const translations = {
     ],
 
     // Output
-    outputTitle: "Таны зурагнууд бэлэн!",
+    outputTitle: "Таны зураг бэлэн боллоо!",
     download: "Татах",
     saveGallery: "Галлерид хадгалах",
     share: "Хуваалцах",
@@ -264,9 +265,6 @@ export const translations = {
     themeLight: "Цайвар",
     themeDark: "Харанхуй",
     themeSystem: "Системийн",
-    uiStyle: "Хэв маяг",
-    uiStyleNeu: "Товойсон",
-    uiStyleFlat: "Хавтгай",
     account: "Бүртгэл",
     paymentMethods: "Төлбөрийн арга",
     privacy: "Нууцлал",
@@ -334,6 +332,7 @@ export const translations = {
     namePlaceholder: "Your name",
     continueBtn: "Continue",
     welcomeBack: "Welcome back",
+    viewProfile: "View your profile",
     loginRequired: "You must sign in to generate images",
 
     presets: "Presets",
@@ -417,7 +416,7 @@ export const translations = {
       "Check your order in the Orders section.",
     ],
 
-    outputTitle: "Your photos are ready!",
+    outputTitle: "Your photo is ready!",
     download: "Download",
     saveGallery: "Save to Gallery",
     share: "Share",
@@ -544,9 +543,6 @@ export const translations = {
     themeLight: "Light",
     themeDark: "Dark",
     themeSystem: "System",
-    uiStyle: "Style",
-    uiStyleNeu: "Embossed",
-    uiStyleFlat: "Flat",
     account: "Account",
     paymentMethods: "Payment methods",
     privacy: "Privacy",

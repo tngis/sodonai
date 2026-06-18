@@ -204,6 +204,7 @@ function FloatingCard({
           fill
           sizes="(max-width: 640px) 35vw, (max-width: 1024px) 144px, 176px"
           className="object-cover"
+          priority={index === 0}
         />
         <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/70 to-transparent p-2">
           <span className="text-[11px] font-semibold text-white">

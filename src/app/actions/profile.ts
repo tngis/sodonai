@@ -21,6 +21,7 @@ export interface Profile {
   avatarUrl: string | null;
   /** Master switch: are this user's shared images allowed in the public showcase? */
   publicSharingEnabled: boolean;
+  isAdmin: boolean;
 }
 
 async function requireUser() {
@@ -33,10 +34,32 @@ async function requireUser() {
 // Presign a single private avatar path. Authorizes the same way as gallery
 // outputs: the key's first segment must be the caller's id (mirrors the
 // Supabase Storage RLS rule the R2 migration replaced).
-async function signAvatar(path: string | null, userId: string): Promise<string | null> {
+//
+// Avatars render tiny, but a gallery-set avatar points at the full-resolution
+// output (multi-MB PNG). If that asset has a thumbnail, serve the small thumb
+// instead. Presigning with `stable: true` makes the URL byte-identical to the
+// gallery grid's thumb URL, so the browser reuses one cache entry — the header
+// avatar then costs zero extra bytes.
+async function signAvatar(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  path: string | null,
+  userId: string,
+): Promise<string | null> {
   if (!path) return null;
   if (path.split("/")[0] !== userId) return null;
-  const [url] = await getSignedUrls(OUTPUTS_BUCKET, [path], 3600);
+
+  let signPath = path;
+  const { data: asset } = await supabase
+    .from("assets")
+    .select("thumb_path")
+    .eq("user_id", userId)
+    .eq("storage_path", path)
+    .maybeSingle();
+  if (asset?.thumb_path) signPath = asset.thumb_path;
+
+  const [url] = await getSignedUrls(OUTPUTS_BUCKET, [signPath], undefined, {
+    stable: true,
+  });
   return url || null;
 }
 
@@ -53,7 +76,7 @@ export async function getProfile(): Promise<Profile> {
   const { supabase, user } = await requireUser();
   const { data } = await supabase
     .from("users")
-    .select("name, phone, avatar_url, public_sharing_enabled")
+    .select("name, phone, avatar_url, public_sharing_enabled, is_admin")
     .eq("id", user.id)
     .single();
 
@@ -63,8 +86,9 @@ export async function getProfile(): Promise<Profile> {
     phone: data?.phone && data.phone !== "" ? data.phone : null,
     email: user.email ?? null,
     avatarPath: data?.avatar_url ?? null,
-    avatarUrl: await signAvatar(data?.avatar_url ?? null, user.id),
+    avatarUrl: await signAvatar(supabase, data?.avatar_url ?? null, user.id),
     publicSharingEnabled: data?.public_sharing_enabled ?? false,
+    isAdmin: data?.is_admin ?? false,
   };
 }
 
@@ -122,7 +146,7 @@ export async function uploadAvatar(formData: FormData): Promise<string> {
   await cleanupOldAvatar(current?.avatar_url ?? null, user.id);
   revalidatePath("/profile");
 
-  return (await signAvatar(path, user.id)) ?? "";
+  return (await signAvatar(supabase, path, user.id)) ?? "";
 }
 
 // Set the profile picture to one of the user's own gallery images. Reuses the
@@ -155,7 +179,7 @@ export async function setAvatarFromGallery(storagePath: string): Promise<string>
   await cleanupOldAvatar(current?.avatar_url ?? null, user.id);
   revalidatePath("/profile");
 
-  return (await signAvatar(storagePath, user.id)) ?? "";
+  return (await signAvatar(supabase, storagePath, user.id)) ?? "";
 }
 
 export async function removeAvatar(): Promise<void> {

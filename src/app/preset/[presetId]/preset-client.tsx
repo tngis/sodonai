@@ -178,7 +178,8 @@ export default function PresetClient({
   // comparison instead of a single sample — needs a "before" image and a result.
   const beforeSrc = preset.example_before || preset.example_inputs[0] || "";
   const showComparison =
-    (preset.example_type === "before_after" || category.id === "cat-restoration") &&
+    (preset.example_type === "before_after" ||
+      category.id === "cat-restoration") &&
     Boolean(beforeSrc) &&
     Boolean(preset.example_output);
 
@@ -303,7 +304,12 @@ export default function PresetClient({
                   after={preset.example_output}
                   beforeLabel={lang === "mn" ? "Өмнө" : "Before"}
                   afterLabel={lang === "mn" ? "Дараа" : "After"}
-                  fallback={<CategoryGlyph category={category} className="size-12 text-muted-foreground" />}
+                  fallback={
+                    <CategoryGlyph
+                      category={category}
+                      className="size-12 text-muted-foreground"
+                    />
+                  }
                   className="aspect-[4/5] rounded-2xl shadow-(--shadow-recessed) glow-brand-sm"
                 />
                 <figcaption className="mt-2 text-center text-xs leading-relaxed text-muted-foreground">
@@ -317,7 +323,12 @@ export default function PresetClient({
                 label={t("presetSample")}
                 note={t("sampleNote")}
                 soonText={t("sampleSoon")}
-                fallbackIcon={<CategoryGlyph category={category} className="size-12 text-muted-foreground" />}
+                fallbackIcon={
+                  <CategoryGlyph
+                    category={category}
+                    className="size-12 text-muted-foreground"
+                  />
+                }
               />
             )}
           </motion.div>
@@ -334,7 +345,10 @@ export default function PresetClient({
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-md bg-primary text-sm">
-                <CategoryIcon category={category} className="size-4 text-primary-foreground" />
+                <CategoryIcon
+                  category={category}
+                  className="size-4 text-primary-foreground"
+                />
               </span>
               <span>{catName}</span>
             </div>
@@ -512,7 +526,11 @@ export default function PresetClient({
         </div>
       </div>
 
-      <LoginGate open={gateOpen} onOpenChange={setGateOpen} next={generateHref} />
+      <LoginGate
+        open={gateOpen}
+        onOpenChange={setGateOpen}
+        next={generateHref}
+      />
     </div>
   );
 }

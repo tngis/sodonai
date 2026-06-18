@@ -10,8 +10,6 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "picsum.photos" },
-      // Kept during the R2 migration: dual-read fallback + un-rewritten examples.
-      { protocol: "https", hostname: "*.supabase.co" },
       // R2 presigned URLs (private uploads/outputs). `**` because the SDK
       // presigns virtual-hosted style: <bucket>.<account>.r2.cloudflarestorage.com
       // — two labels, which a single `*` (one subdomain) would not match.

@@ -21,11 +21,8 @@ import {
   Loader2,
   MapPin,
   User,
-  Layers,
-  Square,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
-import { useUiStyle } from "@/lib/use-ui-style";
 import { createClient } from "@/lib/supabase/client";
 import { exportUserData, deleteAccount } from "@/app/actions/account";
 import { AddressManager } from "@/components/settings/address-manager";
@@ -38,7 +35,6 @@ import { cn } from "@/lib/utils";
 export default function SettingsPage() {
   const { t, lang, setLang } = useLang();
   const { theme, setTheme } = useTheme();
-  const { flat, setFlat, mounted: styleMounted } = useUiStyle();
   const router = useRouter();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -168,47 +164,13 @@ export default function SettingsPage() {
                 className={cn(
                   "flex flex-col items-center gap-2 rounded-xl p-3 text-sm font-medium transition-all cursor-pointer",
                   theme === value
-                    ? "bg-background text-primary shadow-(--shadow-pressed) glow-brand-sm"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-background text-muted-foreground shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)",
                 )}
               >
                 <Icon size={20} /> {label}
               </motion.button>
             ))}
-          </div>
-        </section>
-
-        {/* UI style — flat vs neumorphic (orthogonal to light/dark). Active
-            state uses a solid fill so it reads in flat mode too, where the
-            relief shadow tokens resolve to none. */}
-        <section className="mb-6">
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            <Layers size={12} /> {t("uiStyle")}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {(
-              [
-                { value: false, label: t("uiStyleNeu"), icon: Layers },
-                { value: true, label: t("uiStyleFlat"), icon: Square },
-              ] as const
-            ).map(({ value, label, icon: Icon }) => {
-              const active = styleMounted && flat === value;
-              return (
-                <motion.button
-                  key={label}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => setFlat(value)}
-                  className={cn(
-                    "flex flex-col items-center gap-2 rounded-xl p-3 text-sm font-medium transition-all cursor-pointer",
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background text-muted-foreground shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)",
-                  )}
-                >
-                  <Icon size={20} /> {label}
-                </motion.button>
-              );
-            })}
           </div>
         </section>
 
@@ -221,7 +183,7 @@ export default function SettingsPage() {
           </div>
           <Link
             href="/profile"
-            className="flex items-center justify-between rounded-xl px-4 py-3 shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating)"
+            className="flex items-center justify-between rounded-xl px-4 py-3 shadow-(--shadow-card) transition-all hover:bg-accent"
           >
             <div className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-primary/30 to-primary/5 ring-1 ring-border">
@@ -265,7 +227,7 @@ export default function SettingsPage() {
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="flex items-center justify-between rounded-xl px-4 py-3 text-left shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating) active:shadow-(--shadow-pressed) disabled:opacity-60"
+              className="flex items-center justify-between rounded-xl px-4 py-3 text-left shadow-(--shadow-card) transition-all hover:bg-accent active:shadow-(--shadow-pressed) disabled:opacity-60"
             >
               <div className="flex items-center gap-2">
                 {exporting ? (
@@ -285,7 +247,7 @@ export default function SettingsPage() {
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="flex items-center justify-between rounded-xl px-4 py-3 text-left text-destructive shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating) active:shadow-(--shadow-pressed)"
+                className="flex items-center justify-between rounded-xl px-4 py-3 text-left text-destructive shadow-(--shadow-card) transition-all hover:bg-accent active:shadow-(--shadow-pressed)"
               >
                 <div className="flex items-center gap-2">
                   <Trash2 size={16} />
@@ -355,7 +317,7 @@ export default function SettingsPage() {
               <Link
                 key={label}
                 href={href}
-                className="flex items-center justify-between rounded-xl px-4 py-3 shadow-(--shadow-card) transition-all hover:shadow-(--shadow-floating)"
+                className="flex items-center justify-between rounded-xl px-4 py-3 shadow-(--shadow-card) transition-all hover:bg-accent"
               >
                 <div className="flex items-center gap-2">
                   <Icon size={16} className="text-muted-foreground" />

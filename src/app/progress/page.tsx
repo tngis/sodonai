@@ -44,7 +44,13 @@ function ProgressContent() {
       setGen(data);
 
       if (data.status === "done") {
-        setTimeout(() => router.push(`/output?id=${generationId}`), 600);
+        // fresh=1 marks a just-finished generation so /output fires the success
+        // banner + confetti once. /output strips it from the URL right away, so
+        // refreshes and later opens from the gallery stay quiet.
+        setTimeout(
+          () => router.push(`/output?id=${generationId}&fresh=1`),
+          600,
+        );
       }
     } catch {
       setFetchError("Сүлжээний алдаа гарлаа.");

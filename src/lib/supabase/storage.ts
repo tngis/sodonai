@@ -1,17 +1,15 @@
-// Storage facade. Reads/writes now go to Cloudflare R2 (S3-compatible) to cut
-// Supabase egress costs; Supabase still backs the database + auth. During the
-// migration window, presigning falls back to Supabase Storage for any object
-// not yet copied to R2 (see getSignedUrls). The file keeps this path so the
-// existing importers (payment.ts, generation.ts) need no changes.
+// Storage facade. All reads/writes go to Cloudflare R2 (S3-compatible) to cut
+// Supabase egress costs; Supabase still backs the database + auth. (The R2
+// migration is complete — the old Supabase Storage dual-read/dual-delete
+// fallback has been removed.)
 import {
   PutObjectCommand,
   GetObjectCommand,
-  HeadObjectCommand,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl as presign } from "@aws-sdk/s3-request-presigner";
+import sharp from "sharp";
 import { r2, UPLOADS_BUCKET, OUTPUTS_BUCKET } from "../r2/client";
-import { createAdminClient } from "./admin";
 
 export { UPLOADS_BUCKET, OUTPUTS_BUCKET };
 
@@ -115,6 +113,47 @@ export async function storeOutputFile(
   return path;
 }
 
+// Generate and store a grid thumbnail for an AI output image.
+// Path: {userId}/{generationId}/{index}_thumb.webp
+// Resizes to fit within 640×640 (no upscale), encodes to WebP quality 90.
+// Throws on failure — callers should catch and fall back to thumb_path = null.
+export async function storeThumbFile(
+  imageData: string,
+  userId: string,
+  generationId: string,
+  index: number
+): Promise<string> {
+  let inputBuf: Buffer;
+
+  if (imageData.startsWith("data:")) {
+    const [, b64] = imageData.split(",");
+    inputBuf = Buffer.from(b64, "base64");
+  } else {
+    const res = await fetch(imageData);
+    if (!res.ok) throw new Error(`Thumb fetch failed: ${res.status}`);
+    inputBuf = Buffer.from(await res.arrayBuffer());
+  }
+
+  const webp = await sharp(inputBuf, { failOn: "none" })
+    .rotate()
+    .resize({ width: 640, height: 640, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 90 })
+    .toBuffer();
+
+  const path = `${userId}/${generationId}/${index}_thumb.webp`;
+
+  await r2().send(
+    new PutObjectCommand({
+      Bucket: OUTPUTS_BUCKET,
+      Key: path,
+      Body: webp,
+      ContentType: "image/webp",
+      CacheControl: "public, max-age=31536000, immutable",
+    })
+  );
+  return path;
+}
+
 // ── Deterministic ("stable") presigned URLs ──────────────────────────────────
 // Gallery/output images are presigned on every page load. With a fresh signing
 // time each call, the URL string (incl. its X-Amz-Date/Signature query) changes,
@@ -137,10 +176,7 @@ function stableSigningDate(): Date {
   return new Date(Math.floor(Date.now() / STABLE_WINDOW_MS) * STABLE_WINDOW_MS);
 }
 
-// Batch-generate presigned GET URLs for private objects (server-side only).
-// Dual-read fallback: objects already in R2 are presigned via R2; anything not
-// yet copied falls back to a Supabase signed URL. Remove the fallback once the
-// one-time copy is verified complete (then this becomes pure R2).
+// Batch-generate presigned GET URLs for private R2 objects (server-side only).
 //
 // Per-item resilience: a failed path yields "" instead of rejecting the whole
 // batch (the old Supabase createSignedUrls contract — gallery/print render a
@@ -175,36 +211,13 @@ async function signOne(
   expiresIn: number,
   signingDate?: Date
 ): Promise<string> {
-  if (await existsInR2(bucket, path)) {
-    // signingDate (when provided) pins X-Amz-Date so the presigned URL is
-    // deterministic for the same (bucket, path) within the window.
-    return presign(
-      r2(),
-      new GetObjectCommand({ Bucket: bucket, Key: path }),
-      signingDate ? { expiresIn, signingDate } : { expiresIn }
-    );
-  }
-  // Transition-only fallback. Bucket names match between R2 and Supabase, so the
-  // same `bucket` value works against Supabase Storage. It can't pin the signing
-  // time, so these URLs still vary per call — acceptable: nearly everything is in
-  // R2 and the fallback is on its way out.
-  const admin = createAdminClient();
-  const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, expiresIn);
-  if (error || !data) {
-    throw new Error(`Signed URL failed for ${bucket}/${path}: ${error?.message ?? "not found"}`);
-  }
-  return data.signedUrl;
-}
-
-// HeadObject existence probe. Any failure (404, missing creds, network) routes
-// the caller to the Supabase fallback during the migration window.
-async function existsInR2(bucket: string, path: string): Promise<boolean> {
-  try {
-    await r2().send(new HeadObjectCommand({ Bucket: bucket, Key: path }));
-    return true;
-  } catch {
-    return false;
-  }
+  // signingDate (when provided) pins X-Amz-Date so the presigned URL is
+  // deterministic for the same (bucket, path) within the window.
+  return presign(
+    r2(),
+    new GetObjectCommand({ Bucket: bucket, Key: path }),
+    signingDate ? { expiresIn, signingDate } : { expiresIn }
+  );
 }
 
 // Delete private objects from R2 (best-effort batch).
@@ -216,13 +229,4 @@ export async function removeFiles(bucket: string, paths: string[]): Promise<void
       Delete: { Objects: paths.map((Key) => ({ Key })), Quiet: true },
     })
   );
-
-  // Transition-only: objects copied from Supabase still exist there too, so
-  // deletion (e.g. account removal) must purge both copies. Best-effort — drop
-  // this together with the dual-read fallback once Supabase buckets are emptied.
-  try {
-    await createAdminClient().storage.from(bucket).remove(paths);
-  } catch {
-    // Supabase copy already gone / Storage disabled — R2 is the source of truth.
-  }
 }

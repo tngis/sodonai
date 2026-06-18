@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Reorder, useDragControls } from "motion/react";
 import { toast } from "sonner";
@@ -796,15 +797,17 @@ function PresetRowItem({
               <GripVertical size={16} />
             </span>
           )}
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-foreground/10">
-            {p.example_output ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-foreground/10">
+            {p.example_output && (
+              <Image
                 src={p.example_output}
                 alt=""
-                className="h-full w-full object-cover"
+                fill
+                sizes="64px"
+                className="object-cover"
+                unoptimized={false}
               />
-            ) : null}
+            )}
           </div>
           <div className="min-w-0 flex-1 ml-2">
             <p className="truncate font-semibold mb-2">

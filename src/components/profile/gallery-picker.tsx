@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AlertTriangle, Loader2, ImageOff } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { getOutputUrls } from "@/app/actions/storage";
+import { getOutputUrlPairs } from "@/app/actions/storage";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface PickerItem {
   path: string;
-  url: string;
+  url: string;       // full-image presigned URL (for download / detail)
+  thumbUrl: string;  // thumbnail presigned URL for the grid; falls back to url
 }
 
 // Modal that lists the user's saved gallery images so one can be picked as the
@@ -52,14 +53,24 @@ export function GalleryPicker({
 
     const { data: assets } = await supabase
       .from("assets")
-      .select("storage_path, created_at")
+      .select("storage_path, thumb_path, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (assets?.length) {
-      const paths = assets.map((a) => a.storage_path);
-      const signed = await getOutputUrls(paths);
-      setItems(paths.map((path, i) => ({ path, url: signed[i] ?? "" })));
+      const pairs = await getOutputUrlPairs(
+        assets.map((a) => ({
+          path: a.storage_path,
+          thumbPath: a.thumb_path ?? null,
+        })),
+      );
+      setItems(
+        assets.map((a, i) => ({
+          path: a.storage_path,
+          url: pairs[i].url,
+          thumbUrl: pairs[i].thumbUrl ?? pairs[i].url,
+        })),
+      );
     }
     setLoading(false);
     setLoaded(true);
@@ -112,7 +123,7 @@ export function GalleryPicker({
               >
                 {item.url ? (
                   <Image
-                    src={item.url}
+                    src={item.thumbUrl}
                     alt=""
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"

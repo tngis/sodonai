@@ -67,6 +67,7 @@ export function MobileBottomNav() {
                 className="flex flex-1 flex-col items-center justify-center gap-1"
               >
                 <motion.span
+                  data-fab
                   className={cn(
                     "flex min-h-10 w-14 -translate-y-2 items-center justify-center overflow-hidden rounded-xl bg-primary font-bold text-primary-foreground transition-all duration-200 active:translate-y-0 active:shadow-(--shadow-key-bevel-pressed)",
                     // Raised safety-orange key: a darker-orange base bevel reads as

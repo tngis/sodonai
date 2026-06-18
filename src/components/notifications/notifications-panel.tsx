@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import NextImage from "next/image";
 import { CheckCircle2, AlertTriangle, Bell, Loader2 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -11,11 +12,11 @@ function timeAgo(iso: string, lang: Lang): string {
   const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
   if (s < 60) return lang === "mn" ? "саяхан" : "just now";
   const m = Math.floor(s / 60);
-  if (m < 60) return lang === "mn" ? `${m} мин` : `${m}m`;
+  if (m < 60) return lang === "mn" ? `${m} минутын өмнө` : `${m}m ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return lang === "mn" ? `${h} цаг` : `${h}h`;
+  if (h < 24) return lang === "mn" ? `${h} цагийн өмнө` : `${h}h ago`;
   const d = Math.floor(h / 24);
-  return lang === "mn" ? `${d} өдөр` : `${d}d`;
+  return lang === "mn" ? `${d} өдрийн өмнө` : `${d}d ago`;
 }
 
 // Presentational list of finished generations, shared by the header dropdown
@@ -24,11 +25,15 @@ export function NotificationsPanel({
   items,
   loading,
   lastSeen,
+  thumbs = {},
+  thumbsLoading = false,
   onNavigate,
 }: {
   items: GenItem[];
   loading: boolean;
   lastSeen: number;
+  thumbs?: Record<string, string>;
+  thumbsLoading?: boolean;
   onNavigate?: () => void;
 }) {
   const { t, lang } = useLang();
@@ -55,31 +60,54 @@ export function NotificationsPanel({
       {items.map((g) => {
         const failed = g.status === "failed";
         const unread = new Date(g.updated_at).getTime() > lastSeen;
+        const thumb = !failed ? thumbs[g.id] : undefined;
+        const showSkeleton = !failed && thumbsLoading && !thumb;
         return (
           <Link
             key={g.id}
             href={`/output?id=${g.id}`}
             onClick={onNavigate}
             className={cn(
-              "flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-muted",
+              "flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-muted",
               unread && "bg-primary/5"
             )}
           >
-            <span
-              className={cn(
-                "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg",
-                failed ? "bg-destructive/10 text-destructive" : "bg-primary/15 text-primary"
-              )}
-            >
-              {failed ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
-            </span>
+            {/* Thumbnail, skeleton, or status icon */}
+            {showSkeleton ? (
+              <span className="size-14 shrink-0 animate-pulse rounded-xl bg-muted" />
+            ) : thumb ? (
+              <span className="relative size-14 shrink-0 overflow-hidden rounded-xl">
+                <NextImage
+                  src={thumb}
+                  alt=""
+                  fill
+                  sizes="56px"
+                  className="object-cover"
+                />
+              </span>
+            ) : (
+              <span
+                className={cn(
+                  "flex size-14 shrink-0 items-center justify-center rounded-xl",
+                  failed
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-primary/15 text-primary"
+                )}
+              >
+                {failed ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}
+              </span>
+            )}
+
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium leading-tight">
                 {failed ? t("generationFailedNotif") : t("imageReady")}
               </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{timeAgo(g.updated_at, lang)}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {timeAgo(g.updated_at, lang)}
+              </p>
             </div>
-            {unread && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />}
+
+            {unread && <span className="size-2 shrink-0 rounded-full bg-primary" />}
           </Link>
         );
       })}

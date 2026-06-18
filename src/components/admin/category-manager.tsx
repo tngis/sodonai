@@ -1,32 +1,58 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Reorder, useDragControls } from "motion/react";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, Eye, EyeOff, GripVertical } from "lucide-react";
 import {
-  createCategory, updateCategory, deleteCategory, reorderCategories, type CategoryInput,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  reorderCategories,
+  type CategoryInput,
 } from "@/app/actions/admin";
 import type { Database } from "@/lib/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { TextField, NumberField, TextareaField, CheckboxField, ImageField } from "@/components/admin/fields";
+import {
+  TextField,
+  NumberField,
+  TextareaField,
+  CheckboxField,
+  ImageField,
+} from "@/components/admin/fields";
 import { CategoryGlyph, CATEGORY_ICON_NAMES } from "@/components/category-icon";
 
 type CategoryRow = Database["public"]["Tables"]["categories"]["Row"];
 
 const EMPTY: CategoryInput = {
-  id: "", name_mn: "", name_en: "", description_mn: "", description_en: "",
-  icon: "", image_url: null, sort_order: 0, is_active: true,
+  id: "",
+  name_mn: "",
+  name_en: "",
+  description_mn: "",
+  description_en: "",
+  icon: "",
+  image_url: null,
+  sort_order: 0,
+  is_active: true,
 };
 
 function rowToInput(c: CategoryRow): CategoryInput {
@@ -43,7 +69,11 @@ function rowToInput(c: CategoryRow): CategoryInput {
   };
 }
 
-export function CategoryManager({ initialCategories }: { initialCategories: CategoryRow[] }) {
+export function CategoryManager({
+  initialCategories,
+}: {
+  initialCategories: CategoryRow[];
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState<CategoryInput | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -76,13 +106,22 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
   const handleReorder = (next: CategoryRow[]) => {
     setCats(next);
     if (persistTimer.current) clearTimeout(persistTimer.current);
-    persistTimer.current = setTimeout(() => { void persistOrder(next); }, 500);
+    persistTimer.current = setTimeout(() => {
+      void persistOrder(next);
+    }, 500);
   };
 
-  const startNew = () => { setEditing({ ...EMPTY }); setIsNew(true); };
-  const startEdit = (c: CategoryRow) => { setEditing(rowToInput(c)); setIsNew(false); };
+  const startNew = () => {
+    setEditing({ ...EMPTY });
+    setIsNew(true);
+  };
+  const startEdit = (c: CategoryRow) => {
+    setEditing(rowToInput(c));
+    setIsNew(false);
+  };
 
-  const patch = (p: Partial<CategoryInput>) => setEditing((e) => (e ? { ...e, ...p } : e));
+  const patch = (p: Partial<CategoryInput>) =>
+    setEditing((e) => (e ? { ...e, ...p } : e));
 
   const save = async () => {
     if (!editing) return;
@@ -105,7 +144,8 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Энэ ангиллыг устгах уу? Доторх пресетүүд бас устана.")) return;
+    if (!confirm("Энэ ангиллыг устгах уу? Доторх пресетүүд бас устана."))
+      return;
     try {
       await deleteCategory(id);
       toast.success("Устгалаа.");
@@ -133,10 +173,20 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
           <Plus size={14} className="mr-1" /> Шинэ ангилал
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">Эрэмбийг өөрчлөхдөө <GripVertical size={12} className="inline align-text-bottom" />-ээс чирнэ үү.</p>
+      <p className="text-xs text-muted-foreground">
+        Эрэмбийг өөрчлөхдөө{" "}
+        <GripVertical size={12} className="inline align-text-bottom" />
+        -ээс чирнэ үү.
+      </p>
 
       {/* List (drag to reorder) */}
-      <Reorder.Group as="div" axis="y" values={cats} onReorder={handleReorder} className="flex flex-col gap-2">
+      <Reorder.Group
+        as="div"
+        axis="y"
+        values={cats}
+        onReorder={handleReorder}
+        className="flex flex-col gap-2"
+      >
         {cats.map((c) => (
           <CategoryRowItem
             key={c.id}
@@ -148,22 +198,45 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
         ))}
       </Reorder.Group>
       {cats.length === 0 && (
-        <p className="py-8 text-center text-sm text-muted-foreground">Ангилал алга байна.</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Ангилал алга байна.
+        </p>
       )}
 
       {/* Editor dialog */}
-      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+      <Dialog
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      >
         <DialogContent>
           {editing && (
             <>
               <DialogHeader>
-                <DialogTitle>{isNew ? "Шинэ ангилал" : "Ангилал засах"}</DialogTitle>
+                <DialogTitle>
+                  {isNew ? "Шинэ ангилал" : "Ангилал засах"}
+                </DialogTitle>
               </DialogHeader>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <TextField label="ID (латин, өвөрмөц)" value={editing.id} onChange={(v) => patch({ id: v })} disabled={!isNew} placeholder="cat-family" mono />
+                <TextField
+                  label="ID (латин, өвөрмөц)"
+                  value={editing.id}
+                  onChange={(v) => patch({ id: v })}
+                  disabled={!isNew}
+                  placeholder="cat-family"
+                  mono
+                />
                 <div className="flex flex-col gap-1.5">
-                  <Label className="text-sm font-semibold">Icon (зураггүй үед)</Label>
-                  <Select value={editing.icon || null} onValueChange={(v) => { if (typeof v === "string") patch({ icon: v }); }}>
+                  <Label className="text-sm font-semibold">
+                    Icon (зураггүй үед)
+                  </Label>
+                  <Select
+                    value={editing.icon || null}
+                    onValueChange={(v) => {
+                      if (typeof v === "string") patch({ icon: v });
+                    }}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Сонгох" />
                     </SelectTrigger>
@@ -171,7 +244,11 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
                       {CATEGORY_ICON_NAMES.map((name) => (
                         <SelectItem key={name} value={name}>
                           <span className="flex items-center gap-2">
-                            <CategoryGlyph category={{ icon: name }} className="size-4" /> {name}
+                            <CategoryGlyph
+                              category={{ icon: name }}
+                              className="size-4"
+                            />{" "}
+                            {name}
                           </span>
                         </SelectItem>
                       ))}
@@ -179,20 +256,60 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
                   </Select>
                 </div>
                 <div className="sm:col-span-2">
-                  <ImageField label="Зураг (icon-ийг орлоно)" value={editing.image_url ?? ""} onChange={(v) => patch({ image_url: v || null })} />
+                  <ImageField
+                    label="Зураг (icon-ийг орлоно)"
+                    value={editing.image_url ?? ""}
+                    onChange={(v) => patch({ image_url: v || null })}
+                  />
                 </div>
-                <TextField label="Нэр (MN)" value={editing.name_mn} onChange={(v) => patch({ name_mn: v })} />
-                <TextField label="Нэр (EN)" value={editing.name_en} onChange={(v) => patch({ name_en: v })} />
-                <TextareaField label="Тайлбар (MN)" value={editing.description_mn} onChange={(v) => patch({ description_mn: v })} rows={2} />
-                <TextareaField label="Тайлбар (EN)" value={editing.description_en} onChange={(v) => patch({ description_en: v })} rows={2} />
-                <NumberField label="Эрэмбэ" value={editing.sort_order} onChange={(v) => patch({ sort_order: v })} />
+                <TextField
+                  label="Нэр (MN)"
+                  value={editing.name_mn}
+                  onChange={(v) => patch({ name_mn: v })}
+                />
+                <TextField
+                  label="Нэр (EN)"
+                  value={editing.name_en}
+                  onChange={(v) => patch({ name_en: v })}
+                />
+                <TextareaField
+                  label="Тайлбар (MN)"
+                  value={editing.description_mn}
+                  onChange={(v) => patch({ description_mn: v })}
+                  rows={2}
+                />
+                <TextareaField
+                  label="Тайлбар (EN)"
+                  value={editing.description_en}
+                  onChange={(v) => patch({ description_en: v })}
+                  rows={2}
+                />
+                <NumberField
+                  label="Эрэмбэ"
+                  value={editing.sort_order}
+                  onChange={(v) => patch({ sort_order: v })}
+                />
                 <div className="flex items-end">
-                  <CheckboxField label="Идэвхтэй" checked={editing.is_active} onChange={(v) => patch({ is_active: v })} />
+                  <CheckboxField
+                    label="Идэвхтэй"
+                    checked={editing.is_active}
+                    onChange={(v) => patch({ is_active: v })}
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => setEditing(null)} variant="outline" className="rounded-full">Болих</Button>
-                <Button onClick={save} disabled={saving} className="rounded-full font-bold">
+                <Button
+                  onClick={() => setEditing(null)}
+                  variant="outline"
+                  className="rounded-full"
+                >
+                  Болих
+                </Button>
+                <Button
+                  onClick={save}
+                  disabled={saving}
+                  className="rounded-full font-bold"
+                >
                   {saving ? "Хадгалж байна..." : "Хадгалах"}
                 </Button>
               </DialogFooter>
@@ -205,7 +322,10 @@ export function CategoryManager({ initialCategories }: { initialCategories: Cate
 }
 
 function CategoryRowItem({
-  c, onToggle, onEdit, onRemove,
+  c,
+  onToggle,
+  onEdit,
+  onRemove,
 }: {
   c: CategoryRow;
   onToggle: () => void;
@@ -214,7 +334,13 @@ function CategoryRowItem({
 }) {
   const controls = useDragControls();
   return (
-    <Reorder.Item as="div" value={c} dragListener={false} dragControls={controls} whileDrag={{ scale: 1.01 }}>
+    <Reorder.Item
+      as="div"
+      value={c}
+      dragListener={false}
+      dragControls={controls}
+      whileDrag={{ scale: 1.01 }}
+    >
       <Card>
         <CardContent className="flex items-center gap-1 p-3">
           <button
@@ -225,28 +351,45 @@ function CategoryRowItem({
           >
             <GripVertical size={16} />
           </button>
-          {c.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.image_url} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-          ) : (
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center text-muted-foreground">
-              <CategoryGlyph category={c} className="size-7" />
-            </span>
-          )}
           <div className="min-w-0 flex-1 ml-2">
             <p className="truncate font-semibold mb-2">
               {c.name_mn}
-              {!c.is_active && <Badge variant="secondary" className="ml-2 text-xs">Идэвхгүй</Badge>}
+              {!c.is_active && (
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  Идэвхгүй
+                </Badge>
+              )}
             </p>
-            <p className="truncate font-mono text-xs text-muted-foreground">{c.id}</p>
+            <p className="truncate font-mono text-xs text-muted-foreground">
+              {c.id}
+            </p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onToggle} aria-label="Идэвх солих">
-            {c.is_active ? <Eye size={15} /> : <EyeOff size={15} className="text-muted-foreground" />}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            aria-label="Идэвх солих"
+          >
+            {c.is_active ? (
+              <Eye size={15} />
+            ) : (
+              <EyeOff size={15} className="text-muted-foreground" />
+            )}
           </Button>
-          <Button variant="ghost" size="icon" onClick={onEdit} aria-label="Засах">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onEdit}
+            aria-label="Засах"
+          >
             <Pencil size={15} />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onRemove} aria-label="Устгах">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onRemove}
+            aria-label="Устгах"
+          >
             <Trash2 size={15} className="text-destructive" />
           </Button>
         </CardContent>

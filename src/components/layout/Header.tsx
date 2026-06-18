@@ -14,6 +14,8 @@ import {
   Image as ImageIcon,
   Wallet,
   Zap,
+  ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -28,16 +30,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useUserGenerations } from "@/lib/use-generations";
 import { getLastSeen, markSeenNow } from "@/lib/notif-seen";
+import { getNotificationThumbs } from "@/app/actions/storage";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
 import { ThemeToggle } from "./theme-toggle";
-import { StyleToggle } from "./style-toggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeRegister } from "@/hooks/use-overlay-escape";
 
@@ -51,6 +49,7 @@ export function Header() {
   // load), not a per-component getUser()/getProfile() round-trip on each mount.
   const avatarUrl = profile?.avatarUrl ?? null;
   const profileName = profile?.name ?? null;
+  const isAdmin = profile?.isAdmin ?? false;
 
   // Notifications derived from generation state (no separate table).
   const { finished, loading: notifLoading } = useUserGenerations();
@@ -74,6 +73,9 @@ export function Header() {
   // Snapshot of lastSeen taken when the dropdown opens, so items stay highlighted
   // while viewing even though opening marks them seen (clearing the badge).
   const [panelSeen, setPanelSeen] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [panelThumbs, setPanelThumbs] = useState<Record<string, string>>({});
+  const [panelThumbsLoading, setPanelThumbsLoading] = useState(false);
 
   // Mobile-only account drawer (desktop uses the avatar dropdown). Handles both
   // states: signed-in account menu, signed-out login prompt.
@@ -92,35 +94,39 @@ export function Header() {
   const iconBtn =
     "flex size-10 items-center justify-center rounded-xl bg-background text-muted-foreground shadow-(--shadow-card) transition-all hover:text-foreground active:translate-y-px active:shadow-(--shadow-pressed)";
 
+  // Profile lives in the menu's avatar header (tap it to open /profile), so it's
+  // not repeated as a list item.
   const menuLinks = [
-    { href: "/profile", icon: User, label: t("profile") },
     { href: "/wallet", icon: Wallet, label: t("wallet") },
     { href: "/gallery", icon: ImageIcon, label: t("myGallery") },
     { href: "/orders", icon: ShoppingBag, label: t("myOrders") },
     { href: "/settings", icon: Settings, label: t("settings") },
     { href: "/help", icon: HelpCircle, label: t("helpFaq") },
+    ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: "Админ" }] : []),
   ];
   // Only the first link matching the current path is "active".
   const activeMenuIndex = menuLinks.findIndex(
     (m) => pathname === m.href || pathname.startsWith(`${m.href}/`),
   );
+  const profileActive =
+    pathname === "/profile" || pathname.startsWith("/profile/");
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/70 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
-          {/*<NextImage
+          <NextImage
             src="/logo.png"
             alt=""
             width={32}
             height={32}
             className="h-8 w-8"
             priority
-          />*/}
-          <div className="size-10  border-white rounded-full  border shadow-(--shadow-floating) flex items-center justify-center">
+          />
+          {/*<div className="size-10  border-white rounded-full  border shadow-(--shadow-floating) flex items-center justify-center">
             <Zap size="20" color="red" />
-          </div>
+          </div>*/}
 
           <span className="font-display text-2xl font-bold tracking-tight text-embossed">
             Sodon AI
@@ -141,8 +147,7 @@ export function Header() {
             {lang === "mn" ? "МН" : "EN"}
           </button>
 
-          {/* Theme + UI-style toggles — physical rockers, desktop only */}
-          <StyleToggle className="hidden md:inline-flex" />
+          {/* Theme toggle — physical rocker, desktop only */}
           <ThemeToggle className="hidden md:inline-flex" />
 
           {/* Logged out → direct Login CTA (funnel), all breakpoints. */}
@@ -175,10 +180,22 @@ export function Header() {
               </Link>
 
               <DropdownMenu
+                open={notifOpen}
                 onOpenChange={(open) => {
+                  setNotifOpen(open);
                   if (open) {
                     setPanelSeen(getLastSeen());
                     markSeenNow();
+                    const doneIds = finished
+                      .filter((g) => g.status === "done")
+                      .map((g) => g.id);
+                    if (doneIds.length) {
+                      setPanelThumbsLoading(true);
+                      getNotificationThumbs(doneIds).then((result) => {
+                        setPanelThumbs(result);
+                        setPanelThumbsLoading(false);
+                      });
+                    }
                   }
                 }}
               >
@@ -206,6 +223,9 @@ export function Header() {
                       items={finished}
                       loading={notifLoading}
                       lastSeen={panelSeen}
+                      thumbs={panelThumbs}
+                      thumbsLoading={panelThumbsLoading}
+                      onNavigate={() => setNotifOpen(false)}
                     />
                   </div>
                 </DropdownMenuContent>
@@ -238,31 +258,54 @@ export function Header() {
                 sideOffset={10}
                 className="w-64 space-y-1 rounded-2xl p-2"
               >
-                {/* Profile header */}
-                <div className="flex items-center gap-3 rounded-xl bg-muted/50 px-2.5 py-2.5">
-                  <span className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-primary/30 to-primary/5 ring-1 ring-border">
-                    {avatarUrl ? (
-                      <NextImage
-                        src={avatarUrl}
-                        alt=""
-                        width={40}
-                        height={40}
-                        className="h-full w-full object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <User size={18} />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">
-                      {profileName || t("welcomeBack")}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      Sodon AI
-                    </p>
-                  </div>
-                </div>
+                {/* Profile header — doubles as the link to /profile (so there's
+                    no separate "Profile" list item). Chevron + hover signal it's
+                    tappable. */}
+                <DropdownMenuItem
+                  className={cn(
+                    "rounded-xl px-2.5 py-2.5",
+                    profileActive
+                      ? "bg-primary/10 hover:bg-primary/15 focus-visible:bg-primary/15"
+                      : "bg-muted/50 hover:bg-foreground/10 focus-visible:bg-foreground/10",
+                  )}
+                >
+                  <Link
+                    href="/profile"
+                    className="flex w-full items-center gap-3"
+                  >
+                    <span className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-primary/30 to-primary/5 ring-1 ring-border">
+                      {avatarUrl ? (
+                        <NextImage
+                          src={avatarUrl}
+                          alt=""
+                          width={40}
+                          height={40}
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <User size={18} />
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={cn(
+                          "truncate text-sm font-semibold",
+                          profileActive && "text-primary",
+                        )}
+                      >
+                        {profileName || t("welcomeBack")}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {t("viewProfile")}
+                      </p>
+                    </div>
+                    <ChevronRight
+                      size={16}
+                      className="shrink-0 text-muted-foreground"
+                    />
+                  </Link>
+                </DropdownMenuItem>
 
                 {menuLinks.map((m, i) => {
                   const active = i === activeMenuIndex;
@@ -361,8 +404,17 @@ export function Header() {
           <SheetContent showCloseButton={false} className="md:hidden">
             <SheetTitle className="sr-only">{t("accountMenu")}</SheetTitle>
             <div className="flex flex-col gap-1">
-              {/* Profile header */}
-              <div className="mb-1 flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-3">
+              {/* Profile header — tap to open /profile (no separate list item). */}
+              <Link
+                href="/profile"
+                onClick={() => setAccountOpen(false)}
+                className={cn(
+                  "mb-1 flex items-center gap-3 rounded-xl px-3 py-3",
+                  profileActive
+                    ? "bg-primary/10"
+                    : "bg-muted/50 active:bg-foreground/5",
+                )}
+              >
                 <span className="flex size-11 items-center justify-center overflow-hidden rounded-full bg-linear-to-br from-primary/30 to-primary/5 ring-1 ring-border">
                   {avatarUrl ? (
                     <NextImage
@@ -377,15 +429,24 @@ export function Header() {
                     <User size={20} />
                   )}
                 </span>
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      "truncate font-semibold",
+                      profileActive && "text-primary",
+                    )}
+                  >
                     {profileName || t("welcomeBack")}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    Sodon AI
+                    {t("viewProfile")}
                   </p>
                 </div>
-              </div>
+                <ChevronRight
+                  size={18}
+                  className="shrink-0 text-muted-foreground"
+                />
+              </Link>
 
               {menuLinks.map((m, i) => {
                 const active = i === activeMenuIndex;

@@ -16,8 +16,9 @@ import {
   ImageOff,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { getOutputUrls } from "@/app/actions/storage";
+import { getOutputUrlPairs } from "@/app/actions/storage";
 import { setAvatarFromGallery } from "@/app/actions/profile";
 import { useUserGenerations } from "@/lib/use-generations";
 import { saveImageToDevice } from "@/lib/utils";
@@ -55,13 +56,16 @@ interface GalleryItem {
   id: string;
   generation_id: string | null;
   storage_path: string;
+  thumb_path: string | null;
   is_private: boolean;
   signedUrl: string;
+  thumbSignedUrl: string | null;
   created_at: string;
 }
 
 export default function GalleryPage() {
   const { t } = useLang();
+  const { refreshProfile } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
@@ -86,18 +90,25 @@ export default function GalleryPage() {
 
     const { data: assets } = await supabase
       .from("assets")
-      .select("id, generation_id, storage_path, is_private, created_at")
+      .select(
+        "id, generation_id, storage_path, thumb_path, is_private, created_at",
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (assets && assets.length > 0) {
-      const paths = assets.map((a) => a.storage_path);
-      const signed = await getOutputUrls(paths);
-      const urlMap = Object.fromEntries(
-        signed.map((url, i) => [paths[i], url]),
+      const pairs = await getOutputUrlPairs(
+        assets.map((a) => ({
+          path: a.storage_path,
+          thumbPath: a.thumb_path ?? null,
+        })),
       );
       setGallery(
-        assets.map((a) => ({ ...a, signedUrl: urlMap[a.storage_path] ?? "" })),
+        assets.map((a, i) => ({
+          ...a,
+          signedUrl: pairs[i].url,
+          thumbSignedUrl: pairs[i].thumbUrl,
+        })),
       );
     }
     setLoading(false);
@@ -138,6 +149,7 @@ export default function GalleryPage() {
     setSettingAvatar(true);
     try {
       await setAvatarFromGallery(storagePath);
+      refreshProfile();
       toast.success(t("avatarUpdated"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
@@ -174,7 +186,6 @@ export default function GalleryPage() {
                   delay: Math.min(i * 0.04, 0.4),
                   ease: [0.22, 1, 0.36, 1],
                 }}
-                whileHover={{ y: -3 }}
                 className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10"
                 onClick={() =>
                   img.generation_id &&
@@ -183,7 +194,7 @@ export default function GalleryPage() {
               >
                 {img.signedUrl ? (
                   <Image
-                    src={img.signedUrl}
+                    src={img.thumbSignedUrl ?? img.signedUrl}
                     alt={`Gallery image ${i + 1}`}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -207,7 +218,7 @@ export default function GalleryPage() {
                     <Eye size={11} /> {t("sharedBadge")}
                   </span>
                 )}
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
+                {/*<div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -251,7 +262,7 @@ export default function GalleryPage() {
                   >
                     <Frame size={14} />
                   </button>
-                </div>
+                </div>*/}
               </motion.div>
             ))}
           </div>

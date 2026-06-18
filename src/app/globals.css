@@ -50,271 +50,212 @@
 }
 
 :root {
-    /* ── Industrial Skeuomorphism · LIGHT ────────────────────────────
-       Matte ABS-plastic chassis under diffuse workshop light. Light source
-       is top-left @ 45°: every raised surface gets a white highlight (top-
-       left) + grey shadow (bottom-right). Safety-orange is the only colour —
-       the "emergency stop button" of the palette, used sparingly.
-       --brand drives glows/LED bloom and is the accent so halos read orange. */
+    /* ── Flat light palette ───────────────────────────────────────────────
+       --background is the raised surface color (off-white) so that
+       bg-background elements (icon buttons, header, list rows) sit visibly
+       above the page. Body gets an explicit white override below. Safety-
+       orange is the accent. --muted is darker than surface so recessed
+       wells (inputs, info rows) read as sunken without shadows. */
     --brand: #ff4757;
-    --background: #e0e5ec; /* chassis (Level 0) */
-    --foreground: #2d3436; /* charcoal ink */
-    --panel: #f0f2f5; /* raised panel surface (Level +1, used sparingly) */
-    --card: #e0e5ec; /* cards are chassis-coloured; depth comes from shadow */
+    --background: #f5f6f8;
+    --foreground: #2d3436;
+    --panel: #f0f2f5;
+    /* Card surface — a distinct soft-grey panel so image cards (presets,
+       categories, featured) lift off the white page body instead of blending
+       into it. Sits just above the muted image well. */
+    --card: #edf0f5;
     --card-foreground: #2d3436;
-    --popover: #f0f2f5; /* floating overlays sit on a lighter panel */
+    --popover: #f0f2f5;
     --popover-foreground: #2d3436;
-    --primary: #ff4757; /* safety orange — interactive / accent */
+    --primary: #ff4757;
     --primary-foreground: #ffffff;
-    --secondary: #e0e5ec; /* chassis keycap */
+    --secondary: #f5f6f8;
     --secondary-foreground: #2d3436;
-    --muted: #d1d9e6; /* recessed wells (inputs, grooves) */
-    --muted-foreground: #4a5568; /* labels / metadata (WCAG AA on chassis) */
-    --accent: #d1d9e6; /* neutral hover surface (shadcn semantic, not brand) */
+    --muted: #e2e6eb;
+    --muted-foreground: #4a5568;
+    --accent: #e2e6eb;
     --accent-foreground: #2d3436;
-    --destructive: #e0344a; /* danger red, distinct from brand orange */
-    --border: #babecc; /* engraved seam = neumorphic shadow half */
-    --input: #d1d9e6;
-    --ring: #ff4757; /* orange LED focus ring */
+    --destructive: #e0344a;
+    --border: #c5cad4;
+    --input: #e2e6eb;
+    --ring: #ff4757;
     --radius: 16px;
 
-    /* Neumorphic light-source pair + relief shadows (the core signature). */
-    --neu-light: #ffffff; /* highlight half */
-    --neu-dark: #babecc; /* shadow half */
-    --shadow-card: 8px 4px 16px #babecc, -4px -4px 8px #ffffff;
-    /* Same geometry as --shadow-card at ~50% strength (alpha) — the soft tier. */
-    --shadow-card-sm:
-        8px 4px 16px rgb(186 190 204 / 0.5),
-        -4px -4px 8px rgb(255 255 255 / 0.5);
-    --shadow-card-xs:
-        8px 4px 16px rgb(186 190 204 / 0.3),
-        -4px -4px 8px rgb(255 255 255 / 0.3);
-    --shadow-floating:
-        12px 12px 24px #babecc, -12px -12px 24px #ffffff,
-        inset 1px 1px 0 rgba(255, 255, 255, 0.5);
-    --shadow-pressed: inset 6px 6px 12px #babecc, inset -6px -6px 12px #ffffff;
-    --shadow-recessed: inset 4px 4px 8px #babecc, inset -4px -4px 8px #ffffff;
-    --shadow-glow: 0 0 10px 2px rgba(255, 71, 87, 0.6);
-
-    /* Accent "key" relief — red-tinted dual shadow for primary (safety-orange)
-       buttons. Theme-independent (same red bevel in light + dark, so the .dark
-       block intentionally doesn't re-declare these), which also lets the .flat
-       variant null them in one place so primary keys go flat too. */
-    --shadow-key:
-        4px 4px 8px rgba(166, 50, 60, 0.45),
-        -4px -4px 8px rgba(255, 107, 117, 0.45);
-    --shadow-key-pressed:
-        inset 4px 4px 8px rgba(166, 50, 60, 0.55),
-        inset -4px -4px 8px rgba(255, 107, 117, 0.4);
-    /* Smaller variant for step badges / compact accent chips. */
-    --shadow-key-sm:
-        2px 2px 4px rgba(166, 50, 60, 0.45),
-        -2px -2px 4px rgba(255, 107, 117, 0.45);
-    /* Hard moulded-edge bevel for the raised bottom-nav keys. */
+    /* Relief shadows — all no-ops; neumorphism removed.
+       `0 0 transparent` keeps comma-composed lists (e.g.
+       `shadow-[var(--shadow-recessed),0_0_0_2px_var(--ring)]`) valid so
+       focus rings in those lists aren't silently discarded. */
+    --neu-light: transparent;
+    --neu-dark: transparent;
+    --shadow-card: 0 0 transparent;
+    --shadow-card-sm: 0 0 transparent;
+    --shadow-card-xs: 0 0 transparent;
+    --shadow-floating: 0 4px 12px rgb(0 0 0 / 0.08);
+    --shadow-pressed: 0 0 transparent;
+    --shadow-recessed: 0 0 transparent;
+    --shadow-glow: 0 0 transparent;
+    --shadow-key: 0 0 transparent;
+    --shadow-key-pressed: 0 0 transparent;
+    --shadow-key-sm: 0 0 transparent;
+    /* Bottom-nav FAB retains its bevel — see [data-fab] rules below. */
     --shadow-key-bevel: 0 5px 0 0 #a6323c;
     --shadow-key-bevel-pressed: 0 1px 0 0 #a6323c;
 
-    --sidebar: #e0e5ec;
+    --sidebar: #f5f6f8;
     --sidebar-foreground: #2d3436;
     --sidebar-primary: #ff4757;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #d1d9e6;
+    --sidebar-accent: #e2e6eb;
     --sidebar-accent-foreground: #2d3436;
-    --sidebar-border: #babecc;
+    --sidebar-border: #c5cad4;
     --sidebar-ring: #ff4757;
 
-    /* ── Neumorphic preset card (light: soft porcelain) ──────
-     Same geometry as dark, inverted values: white surfaces,
-     shadows carry the depth, stroke is bright top → soft dark
-     bottom so the card reads embossed on the Lynx White page. */
+    /* Flat preset card tokens (used by .neu-card / .neu-extrude in
+       generate-client.tsx — keep tokens, point at flat values). */
     --neu-surface-hi: #ffffff;
-    --neu-surface: #f1f1f2;
-    --neu-panel: rgba(255, 255, 255, 0.88);
-    --neu-border: #e3e3e5;
-    --neu-stroke: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.95),
-        rgba(35, 35, 35, 0.14)
-    );
-    --neu-stroke-hover: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 1),
-        rgba(35, 35, 35, 0.26)
-    );
-    --neu-card-shadow:
-        0 12px 28px -14px rgba(35, 35, 35, 0.28),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95);
-    --neu-extrude-bg: linear-gradient(180deg, #ffffff, #ededee);
-    --neu-extrude-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 1), 0 4px 10px rgba(35, 35, 35, 0.14);
+    --neu-surface: #f5f6f8;
+    --neu-border: var(--border);
+    --neu-stroke: var(--border);
+    --neu-card-shadow: 0 0 transparent;
+    --neu-extrude-bg: #f5f6f8;
+    --neu-extrude-shadow: 0 0 transparent;
     --neu-text-hi: #232323;
     --neu-text: #4c4c4e;
     --neu-muted: #6e6e70;
-    --neu-beam: rgba(35, 35, 35, 0.3);
-    --neu-glow: rgba(35, 35, 35, 0.18);
     --neu-ring: rgba(35, 35, 35, 0.35);
 }
 
 .dark {
-    /* ── Industrial Skeuomorphism · DARK ─────────────────────────────
-       Anodised charcoal/graphite metal under low workshop light. The
-       neumorphic pair becomes (shadow = darker than chassis) + (highlight =
-       a SLIGHTLY LIGHTER GREY, never #fff — white highlights are the #1 way
-       neumorphism breaks in dark mode). Safety-orange is unchanged, so brand
-       identity carries across themes and LED glows read even better here. */
+    /* ── Dark palette — coherent single-step grey hierarchy ──────────────
+       Page chassis: #24272c  (body explicit override below)
+       Surface:      #2c3036  (--background — icon buttons, cards, header)
+       Elevated:     #33373d  (--popover / --panel — dropdowns, sheets)
+       Hover:        #363c44  (--accent — hover bg for list rows, buttons)
+       Recessed:     #1b1e22  (--muted / --input — info rows, wells)
+       All shadow tokens are no-ops — same as light. */
     --brand: #ff4757;
-    --background: #24272c; /* dark chassis (charcoal/graphite) */
-    --foreground: #e6e9ed; /* off-white ink */
-    --panel: #2c3036; /* raised panel, +1 level */
-    --card: #24272c; /* cards = chassis; depth via shadow */
+    --background: #2c3036;
+    --foreground: #e6e9ed;
+    --panel: #33373d;
+    /* Card surface — the elevated tier (#33373d), two steps above the body
+       chassis (#24272c), so image cards read as raised panels in dark mode. */
+    --card: #33373d;
     --card-foreground: #e6e9ed;
-    --popover: #2c3036; /* floating overlays on a lighter panel */
+    --popover: #33373d;
     --popover-foreground: #e6e9ed;
-    --primary: #ff4757; /* unchanged brand accent */
+    --primary: #ff4757;
     --primary-foreground: #ffffff;
     --secondary: #2c3036;
     --secondary-foreground: #e6e9ed;
-    --muted: #1b1e22; /* recessed / sunken wells */
-    --muted-foreground: #99a2ad; /* AA-compliant on #24272c */
-    --accent: #2c3036; /* neutral hover surface */
+    --muted: #1b1e22;
+    --muted-foreground: #99a2ad;
+    --accent: #363c44;
     --accent-foreground: #e6e9ed;
     --destructive: #ff5a6a;
-    --border: #16181c; /* engraved seam (shadow half) */
+    --border: #3c4149;
     --input: #1b1e22;
     --ring: #ff4757;
 
-    /* Neumorphic pair — highlight is a lighter GREY (#34393f), NOT white. */
-    --neu-light: #34393f; /* highlight half */
-    --neu-dark: #16181c; /* shadow half */
-    --shadow-card: 8px 8px 16px #16181c, -4px -4px 16px #34393f;
-    /* Same geometry as --shadow-card at ~50% strength (alpha) — the soft tier. */
-    --shadow-card-sm:
-        8px 8px 16px rgb(22 24 28 / 0.5), -4px -4px 16px rgb(52 57 63 / 0.5);
-    --shadow-card-xs:
-        8px 8px 16px rgb(22 24 28 / 0.3), -4px -4px 16px rgb(52 57 63 / 0.3);
-    --shadow-floating:
-        12px 12px 24px #16181c, -12px -12px 24px #34393f,
-        inset 1px 1px 0 rgba(255, 255, 255, 0.06);
-    --shadow-pressed: inset 6px 6px 12px #16181c, inset -6px -6px 12px #34393f;
-    --shadow-recessed: inset 4px 4px 8px #16181c, inset -4px -4px 8px #34393f;
-    --shadow-glow: 0 0 12px 2px rgba(255, 71, 87, 0.55);
-
-    --sidebar: #24272c;
-    --sidebar-foreground: #e6e9ed;
-    --sidebar-primary: #ff4757;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #2c3036;
-    --sidebar-accent-foreground: #e6e9ed;
-    --sidebar-border: #16181c;
-    --sidebar-ring: #ff4757;
-
-    /* ── Neumorphic preset card (dark: machined charcoal) ────
-     #2C2C2E surface / #343436 elevated / #49494B borders /
-     #ACACAE highlights. Shadows kept soft — heavy black halos
-     read as smudges on an already-dark page. */
-    --neu-surface-hi: #343436;
-    --neu-surface: #2c2c2e;
-    --neu-panel: rgba(52, 52, 54, 0.92);
-    --neu-border: #49494b;
-    --neu-stroke: linear-gradient(
-        180deg,
-        rgba(172, 172, 174, 0.35),
-        rgba(73, 73, 75, 0.05)
-    );
-    --neu-stroke-hover: linear-gradient(
-        180deg,
-        rgba(172, 172, 174, 0.5),
-        rgba(73, 73, 75, 0.05)
-    );
-    --neu-card-shadow:
-        0 12px 24px -14px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    --neu-extrude-bg: linear-gradient(180deg, #414143, #343436);
-    --neu-extrude-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 10px rgba(0, 0, 0, 0.35);
-    --neu-text-hi: #e2e2e4;
-    --neu-text: #acacae;
-    --neu-muted: #8b8b8d;
-    --neu-beam: rgba(172, 172, 174, 0.5);
-    --neu-glow: rgba(172, 172, 174, 0.25);
-    --neu-ring: rgba(172, 172, 174, 0.4);
-}
-
-/* ── Flat style variant ──────────────────────────────────────────────
-   An orthogonal axis to light/dark: the `flat` class on <html> strips all
-   neumorphism (relief shadows, embossed text, gradient strokes) while the
-   :root / .dark definitions above stay untouched, so the app is fully
-   switchable. Persisted in the `ui-style` cookie and applied server-side
-   (root layout) so there's no flash. This block ONLY re-points tokens —
-   the few effects that inline their own shadows/backgrounds (and so can't
-   be neutralised via a variable) are overridden in the scoped rules below.
-   Works in both themes (it composes with .dark via `<html class="dark flat">`). */
-.flat {
-    /* Kill every relief shadow. NB: these tokens are consumed both standalone
-       (`shadow-(--shadow-card)`) and composed inside multi-value lists
-       (`shadow-[var(--shadow-recessed),0_0_0_2px_var(--ring)]`). A value of
-       `none` is invalid inside a comma list, which makes the WHOLE box-shadow
-       invalid-at-computed-value and silently drops co-located shadows like
-       focus rings. `0 0 transparent` is a valid no-op shadow that renders
-       nothing while keeping such compositions valid. */
+    --neu-light: transparent;
+    --neu-dark: transparent;
     --shadow-card: 0 0 transparent;
     --shadow-card-sm: 0 0 transparent;
     --shadow-card-xs: 0 0 transparent;
+    --shadow-floating: 0 4px 12px rgb(0 0 0 / 0.18);
     --shadow-pressed: 0 0 transparent;
     --shadow-recessed: 0 0 transparent;
     --shadow-glow: 0 0 transparent;
-    /* Accent-key relief (primary buttons, step badges, bottom-nav keys) — same
-       reasoning: flatten to a valid no-op so primary keys lose their bevel. */
     --shadow-key: 0 0 transparent;
     --shadow-key-pressed: 0 0 transparent;
     --shadow-key-sm: 0 0 transparent;
-    --shadow-key-bevel: 0 0 transparent;
-    --shadow-key-bevel-pressed: 0 0 transparent;
-    /* Keep a minimal flat drop shadow so floating layers (dialogs, sheets,
-       popovers, toasts — all consume --shadow-floating) still lift off the page. */
-    --shadow-floating: 0 4px 12px rgb(0 0 0 / 0.08);
+    --shadow-key-bevel: 0 5px 0 0 #a6323c;
+    --shadow-key-bevel-pressed: 0 1px 0 0 #a6323c;
 
-    /* Flatten the preset-card (.neu-*) tokens: solid surfaces + a plain border
-       in place of the gradient stroke and dual-shadow relief. Both halves of
-       the neumorphic light pair go transparent so every inline neu relief
-       (card screws/vents, tabs, slider, checkbox, progress, segmented tabs,
-       admin nav — all use `shadow-[…var(--neu-dark)…var(--neu-light)…]`)
-       renders nothing without touching their offsets. */
+    --sidebar: #2c3036;
+    --sidebar-foreground: #e6e9ed;
+    --sidebar-primary: #ff4757;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #363c44;
+    --sidebar-accent-foreground: #e6e9ed;
+    --sidebar-border: #3c4149;
+    --sidebar-ring: #ff4757;
+
+    --neu-surface-hi: #33373d;
+    --neu-surface: #2c3036;
+    --neu-border: var(--border);
     --neu-stroke: var(--border);
     --neu-card-shadow: 0 0 transparent;
-    --neu-extrude-bg: var(--card);
+    --neu-extrude-bg: #2c3036;
     --neu-extrude-shadow: 0 0 transparent;
-    --neu-surface-hi: var(--card);
-    --neu-surface: var(--card);
-    --neu-light: transparent;
-    --neu-dark: transparent;
+    --neu-text-hi: #e2e2e4;
+    --neu-text: #acacae;
+    --neu-muted: #8b8b8d;
+    --neu-ring: rgba(172, 172, 174, 0.4);
 }
 
-/* Scoped flat overrides for effects that inline their own shadow/background
-   (not expressible through the variables alone). Left unlayered so they win
-   over the layered @layer base/utilities rules they neutralise — including
-   the .dark variants — regardless of source order. */
-.flat .text-embossed {
-    text-shadow: none;
+/* ── Page background ─────────────────────────────────────────────────────
+   --background is the raised surface color so bg-background elements sit
+   visibly above the page. Body needs its own color for the page level.
+   Unlayered rules win over @layer base. */
+body {
+    background-color: #ffffff;
 }
-.flat .neu-card {
+.dark body {
+    background-color: #24272c;
+}
+
+/* ── .neu-card flat rendering ────────────────────────────────────────────
+   The @layer utilities definition still uses background-image (gradient
+   stroke + radial). Override unlayered so a solid surface + plain border
+   renders instead. Hover lift and gradient-ring pseudo are also disabled. */
+.neu-card {
     background-image: none;
     background-color: var(--card);
     border-color: var(--border);
     box-shadow: none;
 }
-.flat .neu-card::before {
+.neu-card::before {
     display: none;
 }
-.flat .neu-card:hover,
-.flat .group:focus-visible > .neu-card {
+.neu-card:hover,
+.group:focus-visible > .neu-card {
     transform: none;
     border-color: var(--brand);
 }
-/* No relief → no grain texture; drop the page + chassis film. */
-.flat body::after,
-.flat .chassis-surface::after {
-    display: none;
+
+/* ── Hairline borders for elements that used shadows for edge definition ─
+   CSS escaping: Tailwind's generated class for shadow-(--shadow-card)
+   is .shadow-\(--shadow-card\). */
+.shadow-\(--shadow-recessed\) {
+    border: 1px solid var(--border);
+}
+.shadow-\(--shadow-card\),
+.shadow-\(--shadow-card-sm\),
+.shadow-\(--shadow-card-xs\) {
+    border: 1px solid var(--border);
+}
+
+/* ── Bottom-nav center FAB (Үүсгэх) ────────────────────────────────────
+   Intentionally keeps its raised 3D key-bevel and brand glow — the one
+   designed exception to the flat aesthetic. aria-current on the parent
+   <Link> distinguishes active vs. inactive states. */
+a:not([aria-current="page"]) [data-fab] {
+    box-shadow: 0 5px 0 0 #a6323c;
+}
+a[aria-current="page"] [data-fab] {
+    box-shadow:
+        0 5px 0 0 #a6323c,
+        0 0 10px 2px rgba(255, 71, 87, 0.6);
+}
+[data-fab]:active {
+    box-shadow: 0 1px 0 0 #a6323c;
+}
+
+/* ── Standard nav active-icon filter ────────────────────────────────────
+   Active tabs apply drop-shadow-[...] directly on the svg; strip it since
+   flat mode has no icon glows. :has([data-fab]) excludes the FAB link. */
+nav[aria-label="Үндсэн цэс"] a:not(:has([data-fab])) svg {
+    filter: none;
 }
 
 @layer base {
@@ -325,36 +266,15 @@
         @apply bg-background text-foreground;
         font-family: var(--font-manrope), system-ui, sans-serif;
     }
-    /* ── Global frosted grain (Arc-style) ───────────────────────
-     Fixed, full-viewport film grain that sits BEHIND content
-     (z-index:-1) so it textures the page/section background but
-     never overlays images, cards, text or generated results —
-     those paint on top and stay clean. It scrolls with nothing
-     (position:fixed) so it reads like real grain. pointer-events
-     :none keeps the UI clickable. feColorMatrix desaturates the
-     RGB turbulence to neutral grain that reads in both themes. */
-    body::after {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        pointer-events: none;
-        /* Roughness knobs: opacity = how present the grain is; the filter's
-       baseFrequency = speckle size (lower → coarser); feComponentTransfer
-       slope = grit/contrast (higher → harsher black/white specks). */
-        /* Matte-plastic micro-texture. Light: overlay blend reads as fine grit
-           on the chassis. Dark: softened (see .dark override) so it textures
-           without crushing the charcoal panels. */
-        opacity: 0.4;
-        mix-blend-mode: overlay;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='gn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncG type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncB type='linear' slope='1.8' intercept='-0.4'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23gn)'/%3E%3C/svg%3E");
-        background-size: 256px 256px;
+    /* Native <button> defaults to cursor:default. Give every enabled button (and
+       role=button element) the pointer cursor — the shared Button component
+       already sets cursor-pointer, but hand-rolled <button>s (favorite toggle,
+       theme/language toggles, card-overlay actions) don't. In @layer base so a
+       cursor-default / cursor-not-allowed utility can still override per element. */
+    button:not(:disabled),
+    [role="button"]:not([aria-disabled="true"]) {
+        cursor: pointer;
     }
-    .dark body::after {
-        opacity: 0.22;
-        mix-blend-mode: soft-light;
-    }
-    /* Display face for all headings + anything using font-display/heading */
     h1,
     h2,
     h3,
@@ -371,22 +291,13 @@
         padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* ── Industrial Skeuomorphism helpers ───────────────────── */
-    /* Embossed/engraved text. Light: white highlight under the glyph (raised).
-       Dark: reversed light relationship — faint top highlight + soft dark
-       drop so engraving still reads correctly. Theme-aware via --neu-light. */
+    /* text-embossed — no-op; class kept because it's used in 10+ files. */
     .text-embossed {
-        text-shadow: 0 1px 0 var(--neu-light);
-    }
-    .dark .text-embossed {
-        text-shadow:
-            0 -1px 0 rgba(255, 255, 255, 0.06),
-            0 1px 2px rgba(0, 0, 0, 0.5);
+        text-shadow: none;
     }
 
     /* "Stamped label" — uppercase wide-tracked mono.
-       LATIN / NUMERIC ONLY: Geist Mono ships no Cyrillic subset, so never
-       apply this to Mongolian copy (it would fall back / tofu). */
+       LATIN / NUMERIC ONLY: Geist Mono ships no Cyrillic subset. */
     .label-stamp {
         font-family: var(--font-geist-mono), ui-monospace, monospace;
         text-transform: uppercase;
@@ -405,91 +316,46 @@
         display: none;
     }
 
-    /* Edge-fade for horizontal scroll tracks. Neumorphic cards cast outer
-       shadows (--shadow-card reaches ~24px); a clipping container chops them
-       into hard dark rectangles — most visible on the dark chassis. Pair this
-       with overflow-x-auto (never overflow-hidden), internal padding ≥ the
-       shadow reach, gap-5/6 between cards, and bg-background so any residual
-       clipped shadow blends into the chassis instead of reading as a hard line.
-       The mask dissolves items at the left/right boundary. --fade-x tunes the
-       fade width (defaults to 24px). */
+    /* Edge-fade for horizontal scroll tracks. Pair with overflow-x-auto,
+       internal padding ≥ --fade-x, and bg-background so items dissolve
+       cleanly at the scroll boundary. */
     .mask-fade-x {
-        --fade-x: 24px;
+        --fade-x: 12px;
         -webkit-mask-image: linear-gradient(
             to right,
             transparent,
             #000 var(--fade-x),
-            #000 calc(100% - var(--fade-x)),
+            #000 calc(90% - var(--fade-x)),
             transparent
         );
         mask-image: linear-gradient(
             to right,
             transparent,
             #000 var(--fade-x),
-            #000 calc(100% - var(--fade-x)),
+            #000 calc(90% - var(--fade-x)),
             transparent
         );
     }
 
-    /* Opaque chassis surface carrying the SAME grain as the page-level overlay
-       (body::after). Use ONLY for genuinely portaled / floating layers that
-       can't let the fixed page grain show through (dialogs, sheets, popovers).
-       In-flow layers (carousels, cards, sections) must stay transparent so the
-       real page grain shows — don't reach for this there. Mirrors body::after
-       exactly: same SVG fractal noise, opacity, and blend (overlay light /
-       soft-light dark). isolation + a z-index:-1 pseudo paints the grain above
-       the element's chassis fill but below its content, without forcing any
-       position on children (so absolutely-positioned children still work).
-       The host must establish its own positioning context (it's `fixed`,
-       `absolute`, or carries `relative`) so the inset-0 grain pseudo sizes to
-       it — we deliberately don't set `position` here, since hard-coding
-       `position: relative` would override `fixed`/`absolute` positioning
-       utilities on the same element (e.g. a centred dialog dropping to the
-       bottom of the page). */
+    /* Opaque surface for portaled / floating layers (dialogs, sheets,
+       popovers). isolation + z-index:-1 pseudo keep content paintable above
+       the chassis fill. No grain pseudo — flat mode has no texture. */
     .chassis-surface {
         isolation: isolate;
         background-color: var(--background);
     }
-    .chassis-surface::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: -1;
-        pointer-events: none;
-        border-radius: inherit;
-        opacity: 0.4;
-        mix-blend-mode: overlay;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='gn'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncG type='linear' slope='1.8' intercept='-0.4'/%3E%3CfeFuncB type='linear' slope='1.8' intercept='-0.4'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23gn)'/%3E%3C/svg%3E");
-        background-size: 256px 256px;
-    }
-    .dark .chassis-surface::after {
-        opacity: 0.22;
-        mix-blend-mode: soft-light;
-    }
 
-    /* ── Brand glow ─────────────────────────────────────────── */
+    /* ── Brand glow ─────────────────────────────────────────────
+       Classes kept (referenced in 10+ files) but zeroed — flat mode
+       uses primary fill / color to communicate active state. */
     .glow-brand {
-        box-shadow:
-            0 0 0 1px color-mix(in oklab, var(--brand) 30%, transparent),
-            0 4px 24px -4px color-mix(in oklab, var(--brand) 45%, transparent),
-            0 0 48px -12px color-mix(in oklab, var(--brand) 35%, transparent);
+        box-shadow: none;
     }
     .glow-brand-sm {
-        box-shadow: 0 2px 16px -4px
-            color-mix(in oklab, var(--brand) 40%, transparent);
-    }
-    .glow-brand-hover {
-        transition:
-            box-shadow 0.3s ease,
-            transform 0.3s ease;
-    }
-    .glow-brand-hover:hover {
-        box-shadow:
-            0 0 0 1px color-mix(in oklab, var(--brand) 35%, transparent),
-            0 8px 32px -6px color-mix(in oklab, var(--brand) 50%, transparent);
+        box-shadow: none;
     }
     .text-glow {
-        text-shadow: 0 0 24px color-mix(in oklab, var(--brand) 55%, transparent);
+        text-shadow: none;
     }
 
     /* ── Glass surface ──────────────────────────────────────── */
@@ -541,10 +407,8 @@
     }
 
     /* ── Neumorphic preset card ──────────────────────────────────
-     Themed via the --neu-* vars above (:root = porcelain light,
-     .dark = machined charcoal). The 1px gradient stroke needs two
-     background layers clipped to padding-box vs border-box, which
-     Tailwind can't express inline. */
+       Base definition kept; the unlayered .neu-card override above
+       wins and applies the flat rendering (solid bg + border). */
     .neu-card {
         position: relative;
         border: 1px solid transparent;
@@ -561,16 +425,13 @@
         box-shadow: var(--neu-card-shadow);
         transition: transform 0.25s ease;
     }
-    /* Gradient strokes can't interpolate, so the brighter hover ring
-     is a masked overlay that fades in. Needs overflow-visible on the
-     card (it sits 1px outside the padding box). */
     .neu-card::before {
         content: "";
         position: absolute;
         inset: -1px;
         border-radius: inherit;
         padding: 1px;
-        background: var(--neu-stroke-hover);
+        background: var(--neu-stroke);
         -webkit-mask:
             linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
@@ -583,16 +444,7 @@
         transition: opacity 0.25s ease;
         pointer-events: none;
     }
-    .neu-card:hover,
-    .group:focus-visible > .neu-card {
-        transform: translateY(-2px);
-    }
-    .neu-card:hover::before,
-    .group:focus-visible > .neu-card::before {
-        opacity: 1;
-    }
-    /* Extruded layer — icon tiles, buttons. Nest two for the stepped,
-     machined look. */
+    /* Extruded layer — icon tiles, CTA pill. */
     .neu-extrude {
         background: var(--neu-extrude-bg);
         border: 1px solid var(--neu-border);
@@ -601,8 +453,9 @@
     .neu-tile {
         border-radius: 30%;
     }
+    /* neu-icon-glow — no filter in flat mode */
     .neu-icon-glow {
-        filter: drop-shadow(0 0 6px var(--neu-glow));
+        filter: none;
     }
 
     /* ── Shimmer (branded skeleton) ─────────────────────────── */
@@ -689,15 +542,10 @@
     }
 }
 
-/* ── Toast (Sonner) — neumorphic floating panel ──────────────────────
-   Sonner injects its base CSS at runtime UNLAYERED, which outranks
-   Tailwind's @layer utilities — a `shadow-(--shadow-floating)` class on
-   the toast would lose to sonner's hardcoded box-shadow. So the skin
-   lives here as unlayered rules, with a `.cn-toast` bump so the selector
-   `[data-sonner-toast].cn-toast` (0,2,0) beats sonner's own
-   `[data-sonner-toast]` (0,1,0). Mirrors the floating-overlay language:
-   popover surface, --shadow-floating relief, 16px radius, hair-line seam,
-   frosted blur, and a per-type status rail down the left edge. */
+/* ── Toast (Sonner) ──────────────────────────────────────────────────────
+   Sonner injects its base CSS unlayered, which outranks @layer utilities.
+   These unlayered rules with `.cn-toast` bump (0,2,0) beat Sonner's own
+   `[data-sonner-toast]` (0,1,0). */
 [data-sonner-toast].cn-toast {
     --toast-rail: var(--muted-foreground);
     gap: 0.75rem;

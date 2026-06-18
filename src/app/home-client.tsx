@@ -106,7 +106,7 @@ export default function HomeClient({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.5 }}
           >
-            <Card detail className="w-full max-w-md">
+            <Card className="w-full max-w-md">
               <div className="flex items-center justify-center gap-6 px-6 py-4 text-sm">
                 {stats.map((s, i) => (
                   <div key={i} className="flex items-center gap-6">
@@ -135,7 +135,7 @@ export default function HomeClient({
               {t("categories")}
             </h2>
           </Reveal>
-          <RevealStagger className="-mx-5 -my-5 grid snap-x auto-rows-fr grid-flow-col grid-rows-2 gap-6 overflow-x-auto scroll-pl-5 scrollbar-hide mask-fade-x bg-transparent px-5 py-5">
+          <RevealStagger className="-mx-4 -my-6 grid snap-x auto-rows-fr grid-flow-col grid-rows-2 gap-6 overflow-x-auto overflow-y-hidden scroll-pl-4 scrollbar-hide mask-fade-x bg-transparent px-4 py-6">
             {categories.map((cat) => (
               <RevealItem
                 key={cat.id}
@@ -152,7 +152,7 @@ export default function HomeClient({
                       damping: 25,
                     }}
                   >
-                    <Card className="group h-full cursor-pointer overflow-hidden py-0 active:shadow-(--shadow-pressed)">
+                    <Card className="group h-full cursor-pointer overflow-hidden py-0">
                       <div className="flex aspect-4/5 items-center justify-center overflow-hidden bg-linear-to-br from-muted to-muted/50">
                         <PresetCardImage
                           src={initialCategoryCovers[cat.id] ?? ""}
@@ -211,7 +211,7 @@ export default function HomeClient({
               {t("featuredPresets")}
             </h2>
           </Reveal>
-          <div className="-mx-5 -my-5 flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-pl-5 scrollbar-hide mask-fade-x bg-transparent px-5 py-5">
+          <div className="-mx-4 -my-5 flex snap-x snap-mandatory gap-6 overflow-x-auto overflow-y-hidden scroll-pl-4 scrollbar-hide mask-fade-x bg-transparent px-4 py-5">
             {initialFeatured.map(({ category: cat, preset }) => (
               <Link
                 key={preset.id}
@@ -219,7 +219,6 @@ export default function HomeClient({
                 className="min-w-50 max-w-55 shrink-0 snap-start"
               >
                 <motion.div
-                  whileHover={{ y: -4 }}
                   whileTap={{ scale: 0.98 }}
                   transition={{
                     type: "spring",

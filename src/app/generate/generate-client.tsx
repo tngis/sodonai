@@ -17,7 +17,11 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
-import { ratioToCss, type CategoryWithPresets, type Preset } from "@/lib/catalog";
+import {
+  ratioToCss,
+  type CategoryWithPresets,
+  type Preset,
+} from "@/lib/catalog";
 import { listFavoriteIds } from "@/app/actions/favorites";
 import { Card, CardContent } from "@/components/ui/card";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -48,24 +52,8 @@ function PosterImage({
   const [error, setError] = useState(false);
   if (!src || error) {
     return (
-      <div
-        className="flex h-full w-full flex-col items-center justify-center"
-        style={{
-          background:
-            "radial-gradient(120% 100% at 50% 0%, var(--neu-surface-hi) 0%, var(--neu-surface) 60%)",
-        }}
-      >
-        {/* Light-beam accent dropping onto the tile from above */}
-        <span
-          aria-hidden
-          className="mb-2 h-10 w-px bg-linear-to-b from-(--neu-beam) to-transparent"
-        />
-        {/* Two nested extruded layers → stepped, machined-metal tile */}
-        <div className="neu-extrude neu-tile p-1.5">
-          <div className="neu-extrude neu-tile flex h-16 w-16 items-center justify-center text-4xl grayscale neu-icon-glow">
-            {fallback}
-          </div>
-        </div>
+      <div className="flex h-full w-full items-center justify-center bg-muted">
+        {fallback}
       </div>
     );
   }
@@ -103,11 +91,9 @@ function PresetCard({
       href={`/preset/${preset.id}`}
       className="group block w-44 shrink-0 snap-start rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--neu-ring) sm:w-52 md:w-70"
     >
-      {/* overflow-visible: the hover ring (::before) sits 1px outside the card;
-          clipping moves to the poster wrapper below. */}
-      <Card className="neu-card overflow-visible rounded-xl bg-transparent ring-0 text-(--neu-text)">
+      <Card className="overflow-visible rounded-xl">
         <div
-          className="relative w-full overflow-hidden rounded-t-[23px] bg-(--neu-surface-hi)"
+          className="relative w-full overflow-hidden rounded-t-[23px] bg-muted"
           style={{ aspectRatio: cardAspect }}
         >
           <PosterImage
@@ -133,21 +119,25 @@ function PresetCard({
 
           {/* Details panel — parked just below the poster's bottom edge, then slides
               up into view on hover. The poster's overflow-hidden clips it, so it
-              reads as an elevated panel emerging from inside the card. Transform +
-              opacity only (no blur on a moving layer) keeps the motion GPU-cheap. */}
-          <div className="absolute inset-x-0 bottom-0 translate-y-full opacity-0 transition-[transform,opacity] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 motion-reduce:transition-none">
+              reads as an elevated panel emerging from inside the card. Transform only
+              (no opacity fade): the panel's backdrop-blur renders late/jumpy while an
+              opacity transition runs, so the clip alone handles show/hide.
+              transform-gpu gives the slide its own compositor layer up front (kills
+              the first-frame promotion lag). No hover-scoped will-change: toggling it
+              on at hover-start forces a fresh layer + repaint that "pops" the shadow
+              in before the slide begins (and makes show/hide asymmetric). transform-gpu
+              alone keeps one stable layer so both directions animate identically. */}
+          <div className="absolute inset-x-0 bottom-0 translate-y-full transform-gpu transition-transform duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-y-0 group-focus-visible:translate-y-0 motion-reduce:transition-none">
             <HoverDetails preset={preset} cat={cat} />
           </div>
         </div>
         <CardContent className="p-3">
-          <p className="truncate font-semibold leading-tight text-(--neu-text)">
-            {name}
-          </p>
+          <p className="truncate font-semibold leading-tight">{name}</p>
           <div className="mt-1.5 flex items-center justify-between">
-            <span className="text-sm font-bold text-(--neu-text)">
+            <span className="text-sm font-bold">
               ₮{preset.price_mnt.toLocaleString()}
             </span>
-            <span className="flex items-center gap-1 text-xs text-(--neu-muted)">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock size={11} /> {preset.eta_min} {t("min")}
             </span>
           </div>
@@ -177,31 +167,26 @@ function HoverDetails({
       : `${preset.required_min}–${preset.required_max}`;
 
   return (
-    // Elevated soft-UI panel: opaque extruded surface (no fog), a bright top "lip"
-    // border, and a soft upward lift shadow so it reads as floating over the image.
-    <div
-      className="relative flex flex-col gap-2.5 rounded-t-xl border-t border-white/55 p-4 shadow-[0_-12px_28px_-16px_rgba(35,35,35,0.28)] dark:border-white/10 dark:shadow-[0_-12px_28px_-16px_rgba(0,0,0,0.55)]"
-      style={{ background: "var(--neu-extrude-bg)" }}
-    >
+    <div className="relative flex flex-col gap-2.5 rounded-t-xl border-t border-white/55 bg-card/60 p-4 backdrop-blur-xl backdrop-saturate-150 dark:border-white/10">
       {/* Category badge */}
-      <span className="self-start rounded-full border border-(--neu-border) bg-(--neu-surface-hi) px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-(--neu-muted)">
+      <span className="self-start rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-white">
         {catName}
       </span>
 
       {/* Title */}
-      <p className="line-clamp-1 text-[15px] font-bold leading-snug text-(--neu-text-hi)">
+      <p className="line-clamp-1 text-[15px] font-bold leading-snug text-foreground">
         {name}
       </p>
 
       {/* Description */}
       {desc && (
-        <p className="line-clamp-2 text-[13px] leading-relaxed text-(--neu-text)">
+        <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
           {desc}
         </p>
       )}
 
       {/* Meta row */}
-      <div className="flex items-center gap-2 text-xs text-(--neu-muted)">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <Clock size={12} /> {preset.eta_min} {t("min")}
         </span>
@@ -217,12 +202,10 @@ function HoverDetails({
 
       {/* Price + CTA */}
       <div className="mt-0.5 flex items-center justify-between gap-2">
-        <span className="text-lg font-black tracking-tight text-(--neu-text-hi)">
+        <span className="text-lg font-black tracking-tight text-foreground">
           ₮{preset.price_mnt.toLocaleString()}
         </span>
-        {/* Soft-UI button: lifts on hover, presses on tap. Routing stays on the
-            parent <Link>; the card's focus-visible ring is the keyboard focus state. */}
-        <span className="neu-extrude flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold text-(--neu-text-hi) transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 active:translate-y-0 motion-reduce:transition-none">
+        <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-4 py-2 text-[13px] font-bold text-foreground shadow-(--shadow-card)">
           {t("details")} <ArrowRight size={13} />
         </span>
       </div>
@@ -289,7 +272,7 @@ function CategoryRow({
         {/* Horizontally scrollable cards (full-bleed on mobile, content-aligned on desktop) */}
         <div
           ref={scrollRef}
-          className="-mx-4 flex snap-x snap-mandatory scroll-pl-4 gap-4 overflow-x-auto scrollbar-hide px-4 py-2 md:mx-0 md:scroll-pl-2 md:pl-2 md:pr-0"
+          className="-mx-4 flex scroll-pl-4 gap-4 overflow-x-auto scrollbar-hide px-4 py-2 md:mx-0 md:scroll-pl-2 md:pl-2 md:pr-0"
         >
           {cat.presets.slice(0, ROW_LIMIT).map((preset) => (
             <PresetCard
@@ -314,7 +297,7 @@ function CategoryRow({
         {/* Prev arrow — desktop only, fades out at the start */}
         <div
           className={cn(
-            "pointer-events-none absolute inset-y-2 left-0 z-10 hidden w-16 items-center justify-start bg-linear-to-r from-background via-background/80 to-transparent transition-opacity duration-200 md:flex",
+            "pointer-events-none absolute inset-y-2 left-0 z-10 hidden w-16 items-center justify-start bg-linear-to-r from-background via-background/20 to-transparent transition-opacity duration-200 md:flex",
             canPrev ? "opacity-100" : "opacity-0",
           )}
         >
@@ -332,7 +315,7 @@ function CategoryRow({
         {/* Next arrow — desktop only, fades out at the end */}
         <div
           className={cn(
-            "pointer-events-none absolute inset-y-2 right-0 z-10 hidden w-16 items-center justify-end bg-linear-to-l from-background via-background/80 to-transparent transition-opacity duration-200 md:flex",
+            "pointer-events-none absolute inset-y-2 right-0 z-10 hidden w-16 items-center justify-end bg-linear-to-l from-background via-background/20 to-transparent transition-opacity duration-200 md:flex",
             canNext ? "opacity-100" : "opacity-0",
           )}
         >

@@ -65,37 +65,14 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        {/* ── Wallet ── */}
-        <Link
-          href="/wallet"
-          className="mb-8 flex items-center gap-4 rounded-2xl bg-linear-to-br from-primary/15 to-primary/5 p-5 shadow-(--shadow-card) ring-1 ring-primary/20 transition-all hover:ring-primary/40 active:translate-y-px active:shadow-(--shadow-pressed)"
-        >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-            <Wallet size={22} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t("wallet")}</p>
-            {walletBalance === null ? (
-              <Skeleton className="mt-1 h-7 w-28" />
-            ) : (
-              <p className="text-2xl font-black text-primary">{formatMnt(walletBalance)}</p>
-            )}
-          </div>
-          <ChevronRight size={18} className="shrink-0 text-muted-foreground" />
-        </Link>
-
         {/* ── Profile picture ── */}
         <section className="mb-8">
           <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             <User size={12} /> {t("profilePicture")}
           </div>
           {loading || !profile ? (
-            <div className="flex items-center gap-6">
+            <div className="flex flex-col items-center gap-3">
               <Skeleton className="h-28 w-28 rounded-full" />
-              <div className="flex flex-1 flex-col gap-2">
-                <Skeleton className="h-10 w-full rounded-xl" />
-                <Skeleton className="h-10 w-full rounded-xl" />
-              </div>
             </div>
           ) : (
             <AvatarUploader
@@ -189,6 +166,25 @@ export default function ProfilePage() {
             </div>
           </div>
         </section>
+
+        {/* ── Wallet ── */}
+        <Link
+          href="/wallet"
+          className="mb-8 flex items-center gap-4 rounded-2xl bg-linear-to-br from-primary/15 to-primary/5 p-5 shadow-(--shadow-card) ring-1 ring-primary/20 transition-all hover:ring-primary/40 active:translate-y-px active:shadow-(--shadow-pressed)"
+        >
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <Wallet size={22} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t("wallet")}</p>
+            {walletBalance === null ? (
+              <Skeleton className="mt-1 h-7 w-28" />
+            ) : (
+              <p className="text-2xl font-black text-primary">{formatMnt(walletBalance)}</p>
+            )}
+          </div>
+          <ChevronRight size={18} className="shrink-0 text-muted-foreground" />
+        </Link>
 
         {/* ── Favorite presets ── */}
         <section className="mb-6">

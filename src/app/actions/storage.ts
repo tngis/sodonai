@@ -28,3 +28,100 @@ export async function getOutputUrls(paths: string[]): Promise<string[]> {
   // stable mode — the window expiry is used.)
   return getSignedUrls(OUTPUTS_BUCKET, paths, undefined, { stable: true });
 }
+
+// Fetch and presign thumbnail URLs for a list of generation IDs.
+// Queries the assets table for the first asset per generation, preferring
+// thumb_path over storage_path, and returns a { [genId]: signedUrl } map.
+// Used by the notifications panel to show result thumbnails.
+export async function getNotificationThumbs(
+  genIds: string[]
+): Promise<Record<string, string>> {
+  if (genIds.length === 0) return {};
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return {};
+
+  const { data } = await supabase
+    .from("assets")
+    .select("generation_id, storage_path, thumb_path")
+    .in("generation_id", genIds)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true });
+
+  if (!data?.length) return {};
+
+  type AssetRow = {
+    generation_id: string | null;
+    storage_path: string;
+    thumb_path: string | null;
+  };
+
+  const firstByGen = new Map<string, { path: string }>();
+  for (const row of data as AssetRow[]) {
+    if (!row.generation_id) continue;
+    if (!firstByGen.has(row.generation_id)) {
+      firstByGen.set(row.generation_id, {
+        path: row.thumb_path ?? row.storage_path,
+      });
+    }
+  }
+
+  const genIdList = [...firstByGen.keys()];
+  const paths = genIdList.map((gid) => firstByGen.get(gid)!.path);
+  const signed = await getSignedUrls(OUTPUTS_BUCKET, paths, undefined, {
+    stable: true,
+  });
+
+  const result: Record<string, string> = {};
+  genIdList.forEach((gid, i) => {
+    if (signed[i]) result[gid] = signed[i];
+  });
+  return result;
+}
+
+// Presign full-image paths AND their thumbnail paths in one call.
+// Used by the gallery grid and gallery-picker: the grid shows thumbUrls for
+// fast load, the detail view (output page) uses the full-image URL separately.
+//
+// thumbPath may be null when a thumbnail was not generated (older assets or a
+// failed thumb run). In that case thumbUrl is null and callers fall back to url.
+export async function getOutputUrlPairs(
+  entries: { path: string; thumbPath: string | null }[]
+): Promise<{ url: string; thumbUrl: string | null }[]> {
+  if (entries.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Нэвтэрч орно уу.");
+
+  for (const { path } of entries) {
+    if (path.split("/")[0] !== user.id) throw new Error("Хандах эрхгүй зам.");
+  }
+
+  const paths = entries.map((e) => e.path);
+  const urls = await getSignedUrls(OUTPUTS_BUCKET, paths, undefined, { stable: true });
+
+  // Batch-presign only the non-null thumb paths, then scatter back to positions.
+  const thumbBatch: string[] = [];
+  const thumbIdxMap: number[] = []; // thumbBatch[i] belongs to entries[thumbIdxMap[i]]
+  entries.forEach(({ thumbPath }, i) => {
+    if (thumbPath) {
+      thumbIdxMap.push(i);
+      thumbBatch.push(thumbPath);
+    }
+  });
+
+  const thumbSigned = thumbBatch.length
+    ? await getSignedUrls(OUTPUTS_BUCKET, thumbBatch, undefined, { stable: true })
+    : [];
+
+  const thumbUrls: (string | null)[] = entries.map(() => null);
+  thumbIdxMap.forEach((entryIdx, batchIdx) => {
+    thumbUrls[entryIdx] = thumbSigned[batchIdx] || null;
+  });
+
+  return entries.map((_, i) => ({ url: urls[i], thumbUrl: thumbUrls[i] }));
+}

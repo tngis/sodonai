@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   uploadFile,
   storeOutputFile,
+  storeThumbFile,
   validateImageFile,
   getSignedUrls,
   UPLOADS_BUCKET,
@@ -196,12 +197,29 @@ export async function runGeneration({
 
     await updateGen({ progress: 80 });
 
-    // Download AI outputs and store them in the private outputs bucket
-    const resultPaths = await Promise.all(
-      imageUrls.map((url, idx) =>
-        storeOutputFile(url, userId, generationId, idx),
+    // Download AI outputs and store them in the private outputs bucket.
+    // Thumbnails (for the gallery grid) are generated in parallel — failures are
+    // non-fatal: a null thumb_path makes the grid fall back to the full image.
+    const [resultPaths, thumbPaths] = await Promise.all([
+      Promise.all(
+        imageUrls.map((url, idx) =>
+          storeOutputFile(url, userId, generationId, idx),
+        ),
       ),
-    );
+      Promise.all(
+        imageUrls.map(async (url, idx) => {
+          try {
+            return await storeThumbFile(url, userId, generationId, idx);
+          } catch (err) {
+            log("generation.thumb_failed", {
+              index: idx,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            return null;
+          }
+        }),
+      ),
+    ]);
 
     await updateGen({
       status: "done",
@@ -226,10 +244,11 @@ export async function runGeneration({
       // appears in the public showcase until the owner hides it (which is final).
       const isPrivate = options.isPrivate ?? true;
       await admin.from("assets").insert(
-        resultPaths.map((path) => ({
+        resultPaths.map((path, idx) => ({
           user_id: userId,
           generation_id: generationId,
           storage_path: path,
+          thumb_path: thumbPaths[idx] ?? null,
           is_private: isPrivate,
         })),
       );

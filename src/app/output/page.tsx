@@ -1,10 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Download, Frame, Share2, RefreshCw, Flag, X, ZoomIn, AlertTriangle, Loader2, ChevronLeft, ChevronRight, UserRound, EyeOff, Check } from "lucide-react";
+import {
+  Download,
+  Frame,
+  Share2,
+  RefreshCw,
+  Flag,
+  X,
+  ZoomIn,
+  AlertTriangle,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  UserRound,
+  EyeOff,
+  Check,
+} from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { reportGeneration } from "@/app/actions/generation";
@@ -18,16 +33,19 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { cn, saveImageToDevice } from "@/lib/utils";
 import { useEscapeRegister } from "@/hooks/use-overlay-escape";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface GenerationResult {
   id: string;
   status: string;
   result_urls: string[] | null;
   error: string | null;
+  preset_id: string | null;
 }
 
 function OutputContent() {
   const { t } = useLang();
+  const { refreshProfile } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const generationId = searchParams.get("id");
@@ -41,7 +59,12 @@ function OutputContent() {
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const closePreview = useCallback(() => setPreviewIdx(null), []);
   useEscapeRegister(previewIdx !== null, closePreview);
-  const [celebrate, setCelebrate] = useState(false);
+  // Success banner + confetti show ONLY on the first arrival straight from a
+  // finished generation (?fresh=1). On revisits the result images speak for
+  // themselves, so the banner would just be noise. See the fresh-gated effect
+  // below — it strips ?fresh from the URL so refresh/back/gallery stay quiet.
+  const [showSuccess, setShowSuccess] = useState(false);
+  const celebratedRef = useRef(false);
   // Is this generation CURRENTLY public? true → show the "hide from feed" action
   // (the only post-generation visibility control). false/null → private (never
   // shared) or already unshared (hidden for good) — no control either way, since
@@ -57,19 +80,39 @@ function OutputContent() {
   useEscapeRegister(confirmUnshare, closeConfirmUnshare);
 
   const load = useCallback(async () => {
-    if (!generationId) { setLoading(false); return; }
+    if (!generationId) {
+      setLoading(false);
+      return;
+    }
     const supabase = createClient();
     const { data, error } = await supabase
       .from("generations")
-      .select("id, status, result_urls, error, discount_mnt")
+      .select("id, status, result_urls, error, discount_mnt, orders(preset_id)")
       .eq("id", generationId)
       .single();
 
-    if (error || !data) { setLoading(false); return; }
+    if (error || !data) {
+      setLoading(false);
+      return;
+    }
     // Cast needed because @supabase/supabase-js type inference breaks with TS 5.9+
-    const typed = data as unknown as GenerationResult;
+    const raw = data as unknown as {
+      id: string;
+      status: string;
+      result_urls: string[] | null;
+      error: string | null;
+      discount_mnt: number | null;
+      orders: { preset_id: string | null } | null;
+    };
+    const typed: GenerationResult = {
+      id: raw.id,
+      status: raw.status,
+      result_urls: raw.result_urls,
+      error: raw.error,
+      preset_id: raw.orders?.preset_id ?? null,
+    };
     setGen(typed);
-    setUnshareCost((data as unknown as { discount_mnt: number | null }).discount_mnt ?? 0);
+    setUnshareCost(raw.discount_mnt ?? 0);
 
     // This generation's showcase visibility. Owner-read RLS means a row comes
     // back only when the caller owns the generation's gallery assets.
@@ -89,7 +132,9 @@ function OutputContent() {
     if (typed.result_urls?.length) {
       const urls = typed.result_urls;
       const storagePaths = urls.filter((u) => !u.startsWith("http"));
-      const resolved = storagePaths.length ? await getOutputUrls(storagePaths) : [];
+      const resolved = storagePaths.length
+        ? await getOutputUrls(storagePaths)
+        : [];
 
       const signed: string[] = [];
       const paths: (string | null)[] = [];
@@ -102,7 +147,10 @@ function OutputContent() {
           const url = resolved[si];
           const path = storagePaths[si];
           si++;
-          if (url) { signed.push(url); paths.push(path); }
+          if (url) {
+            signed.push(url);
+            paths.push(path);
+          }
         }
       }
       setSignedImageUrls(signed);
@@ -112,24 +160,46 @@ function OutputContent() {
     setLoading(false);
   }, [generationId]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // Fire the celebration once, when results first appear
   useEffect(() => {
-    if (gen?.status === "done" && signedImageUrls.length > 0) {
-      setCelebrate(true);
-      const id = setTimeout(() => setCelebrate(false), 2200);
-      return () => clearTimeout(id);
-    }
-  }, [gen?.status, signedImageUrls.length]);
+    load();
+  }, [load]);
+
+  // Fire the celebration once — only on a fresh arrival (?fresh=1) with results
+  // ready. We flip showSuccess on, then immediately strip ?fresh from the URL so
+  // a refresh or a later open from the gallery won't re-trigger it. The ref
+  // guards against the re-run that the router.replace itself causes.
+  useEffect(() => {
+    if (celebratedRef.current) return;
+    if (searchParams.get("fresh") !== "1") return;
+    if (gen?.status !== "done" || signedImageUrls.length === 0) return;
+    celebratedRef.current = true;
+    setShowSuccess(true);
+    router.replace(`/output?id=${generationId}`, { scroll: false });
+  }, [searchParams, gen?.status, signedImageUrls.length, generationId, router]);
+
+  // Auto-dismiss the banner a few seconds after it appears. Kept separate from
+  // the trigger above so the URL strip can't cancel this timer.
+  useEffect(() => {
+    if (!showSuccess) return;
+    const id = setTimeout(() => setShowSuccess(false), 4000);
+    return () => clearTimeout(id);
+  }, [showSuccess]);
 
   // Lightbox keyboard nav: Esc to close, ←/→ to move between results
   useEffect(() => {
     if (previewIdx === null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPreviewIdx(null);
-      if (e.key === "ArrowRight") setPreviewIdx((i) => (i === null ? i : (i + 1) % signedImageUrls.length));
-      if (e.key === "ArrowLeft") setPreviewIdx((i) => (i === null ? i : (i - 1 + signedImageUrls.length) % signedImageUrls.length));
+      if (e.key === "ArrowRight")
+        setPreviewIdx((i) =>
+          i === null ? i : (i + 1) % signedImageUrls.length,
+        );
+      if (e.key === "ArrowLeft")
+        setPreviewIdx((i) =>
+          i === null
+            ? i
+            : (i - 1 + signedImageUrls.length) % signedImageUrls.length,
+        );
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -172,6 +242,7 @@ function OutputContent() {
     setSettingAvatar(true);
     try {
       await setAvatarFromGallery(path);
+      refreshProfile();
       toast.success(t("avatarUpdated"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
@@ -181,7 +252,7 @@ function OutputContent() {
   };
 
   const handleRegenerate = () => {
-    router.push("/generate");
+    router.push(gen?.preset_id ? `/generate/${gen.preset_id}` : "/generate");
   };
 
   // Hide this image from the public feed — the only post-generation visibility
@@ -190,7 +261,10 @@ function OutputContent() {
   // straight away.
   const handleUnshareClick = () => {
     if (!shared || savingShare || !generationId) return;
-    if (unshareCost > 0) { setConfirmUnshare(true); return; }
+    if (unshareCost > 0) {
+      setConfirmUnshare(true);
+      return;
+    }
     runUnshare();
   };
 
@@ -203,7 +277,9 @@ function OutputContent() {
       const { charged } = await unshareGeneration(generationId);
       setShared(false);
       setConfirmUnshare(false);
-      toast.success(charged > 0 ? `${formatMnt(charged)} төлж нууцаллаа.` : "Нууцлав.");
+      toast.success(
+        charged > 0 ? `${formatMnt(charged)} төлж нууцаллаа.` : "Нууцлав.",
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
     } finally {
@@ -260,7 +336,11 @@ function OutputContent() {
       <div className="flex min-h-full flex-col items-center justify-center gap-4 px-4 text-center">
         <Loader2 size={32} className="animate-spin text-primary" />
         <p className="text-muted-foreground">Зургийг боловсруулж байна...</p>
-        <Button variant="outline" onClick={() => router.push(`/progress?id=${generationId}`)} className="rounded-full">
+        <Button
+          variant="outline"
+          onClick={() => router.push(`/progress?id=${generationId}`)}
+          className="rounded-full"
+        >
           Явцыг харах
         </Button>
       </div>
@@ -271,39 +351,72 @@ function OutputContent() {
 
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
-      {celebrate && <Celebrate />}
+      {showSuccess && <Celebrate />}
       <div className="mx-auto max-w-4xl">
-
-        {/* Success banner */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 24 }}
-          className="mb-6 flex items-center gap-3 rounded-xl p-4 shadow-(--shadow-card) glow-brand-sm"
+        {/* Back to gallery */}
+        <Link
+          href="/gallery"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
-          <motion.div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-            style={{ background: "var(--primary)" }}
-            initial={{ scale: 0, rotate: -90 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 18, delay: 0.1 }}
-          >
-            <Check size={16} strokeWidth={3} className="text-primary-foreground" />
-          </motion.div>
-          <p className="text-sm font-medium">{t("outputTitle")}</p>
-        </motion.div>
+          <ChevronLeft size={16} />
+          {t("gallery")}
+        </Link>
+
+        {/* Success banner — fresh arrivals only, auto-dismisses after a few
+            seconds (see showSuccess). AnimatePresence gives it an exit fade. */}
+        <AnimatePresence>
+          {showSuccess && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 24 }}
+              className="mb-6 flex items-center gap-3 rounded-xl p-4 shadow-(--shadow-card) glow-brand-sm"
+            >
+              <motion.div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                style={{ background: "var(--primary)" }}
+                initial={{ scale: 0, rotate: -90 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 400,
+                  damping: 18,
+                  delay: 0.1,
+                }}
+              >
+                <Check
+                  size={16}
+                  strokeWidth={3}
+                  className="text-primary-foreground"
+                />
+              </motion.div>
+              <p className="text-sm font-medium">{t("outputTitle")}</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Image left · actions right on desktop; stacked full-width on mobile */}
         <div className="flex flex-col gap-10 lg:flex-row lg:items-start">
           {/* Images — natural aspect ratio (not cropped to a square) */}
-          <div className={cn("grid flex-1 gap-4 grid-cols-1", images.length > 1 && "sm:grid-cols-2")}>
+          <div
+            className={cn(
+              "grid flex-1 gap-4 grid-cols-1",
+              images.length > 1 && "sm:grid-cols-2",
+            )}
+          >
             {images.map((url, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                className="group relative overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10"
+                transition={{
+                  duration: 0.4,
+                  delay: i * 0.08,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                onClick={() => setPreviewIdx(i)}
+                className="group relative cursor-zoom-in overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10"
               >
                 <Image
                   src={url}
@@ -314,16 +427,26 @@ function OutputContent() {
                   sizes="(max-width: 1024px) 100vw, 60vw"
                   unoptimized
                 />
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
+                {/* Hover actions — only on hover-capable (desktop) devices. On
+                    touch there's no hover, so the overlay would stay invisible
+                    yet still swallow taps; hidden there, the image itself opens
+                    the lightbox (where the same actions live). */}
+                <div className="absolute inset-0 hidden items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100 [@media(hover:hover)]:flex">
                   <button
-                    onClick={() => setPreviewIdx(i)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewIdx(i);
+                    }}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label="Томруулах"
                   >
                     <ZoomIn size={16} />
                   </button>
                   <button
-                    onClick={() => handleDownload(url, i)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(url, i);
+                    }}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label={t("download")}
                   >
@@ -331,7 +454,10 @@ function OutputContent() {
                   </button>
                   {resultPaths[i] && (
                     <button
-                      onClick={() => handleSetProfile(resultPaths[i])}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSetProfile(resultPaths[i]);
+                      }}
                       disabled={settingAvatar}
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed) disabled:opacity-60"
                       aria-label={t("setAsProfilePicture")}
@@ -346,7 +472,10 @@ function OutputContent() {
 
           {/* Actions — full-width stack; fixed right column on desktop */}
           <div className="flex w-full flex-col gap-3 lg:w-80 lg:shrink-0">
-            <Button onClick={handleDownloadAll} className="w-full justify-center rounded-full font-bold">
+            <Button
+              onClick={handleDownloadAll}
+              className="w-full justify-center rounded-full font-bold"
+            >
               <Download size={16} className="mr-2" /> {t("download")}
             </Button>
             <Button
@@ -369,14 +498,20 @@ function OutputContent() {
                 post-generation visibility control. */}
             {shared === true && (
               <div className="rounded-xl p-4 shadow-(--shadow-card)">
-                <p className="text-xs text-muted-foreground">{t("unshareHelp")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("unshareHelp")}
+                </p>
                 <Button
                   variant="outline"
                   className="mt-3 w-full justify-center rounded-full"
                   onClick={handleUnshareClick}
                   disabled={savingShare}
                 >
-                  {savingShare ? <Loader2 size={16} className="mr-2 animate-spin" /> : <EyeOff size={16} className="mr-2" />}
+                  {savingShare ? (
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                  ) : (
+                    <EyeOff size={16} className="mr-2" />
+                  )}
                   {t("unshareAction")}
                 </Button>
               </div>
@@ -385,22 +520,32 @@ function OutputContent() {
               <Button
                 variant="outline"
                 className="w-full justify-center rounded-full"
-                onClick={() => handleSetProfile(resultPaths.find((p) => p) ?? null)}
+                onClick={() =>
+                  handleSetProfile(resultPaths.find((p) => p) ?? null)
+                }
                 disabled={settingAvatar}
               >
-                {settingAvatar ? <Loader2 size={16} className="mr-2 animate-spin" /> : <UserRound size={16} className="mr-2" />}
+                {settingAvatar ? (
+                  <Loader2 size={16} className="mr-2 animate-spin" />
+                ) : (
+                  <UserRound size={16} className="mr-2" />
+                )}
                 {t("setAsProfilePicture")}
               </Button>
             )}
-            <Button variant="ghost" className="w-full justify-center rounded-full text-muted-foreground" onClick={handleRegenerate}>
+            <Button
+              variant="ghost"
+              className="w-full justify-center rounded-full text-muted-foreground"
+              onClick={handleRegenerate}
+            >
               <RefreshCw size={16} className="mr-2" /> {t("regenerate")}
             </Button>
-            <button
+            {/*<button
               onClick={handleReport}
               className="mt-1 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-destructive"
             >
               <Flag size={12} /> {t("report")}
-            </button>
+            </button>*/}
           </div>
         </div>
       </div>
@@ -412,14 +557,18 @@ function OutputContent() {
             role="dialog"
             aria-modal="true"
             aria-label="Зургийн томруулсан харагдац"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
             onClick={() => setPreviewIdx(null)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="relative w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            {/* Image — centered; drag-swipe between results */}
+            <div
+              className="relative w-full max-w-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
               <AnimatePresence mode="wait">
                 <motion.div
                   key={previewIdx}
@@ -428,76 +577,136 @@ function OutputContent() {
                   dragConstraints={{ left: 0, right: 0 }}
                   dragElastic={0.2}
                   onDragEnd={(_, info) => {
-                    if (info.offset.x < -80) setPreviewIdx((i) => (i === null ? i : (i + 1) % images.length));
-                    else if (info.offset.x > 80) setPreviewIdx((i) => (i === null ? i : (i - 1 + images.length) % images.length));
+                    if (info.offset.x < -80)
+                      setPreviewIdx((i) =>
+                        i === null ? i : (i + 1) % images.length,
+                      );
+                    else if (info.offset.x > 80)
+                      setPreviewIdx((i) =>
+                        i === null
+                          ? i
+                          : (i - 1 + images.length) % images.length,
+                      );
                   }}
                   initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Image src={images[previewIdx]} alt={`Result ${previewIdx + 1}`} fill className="object-contain" sizes="100vw" unoptimized draggable={false} />
+                  <Image
+                    src={images[previewIdx]}
+                    alt={`Result ${previewIdx + 1}`}
+                    fill
+                    className="object-contain"
+                    sizes="100vw"
+                    unoptimized
+                    draggable={false}
+                  />
                 </motion.div>
               </AnimatePresence>
+            </div>
 
-              <button
-                onClick={() => setPreviewIdx(null)}
-                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
-                aria-label="Хаах"
+            {/* Controls are anchored to the SCREEN, not the image box. With
+                object-contain a portrait image is far narrower than the
+                max-w-2xl box, so box-relative controls drifted into the black
+                margins. Screen-anchored = consistent on mobile and desktop. */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewIdx(null);
+              }}
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+              aria-label="Хаах"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Prev / Next — screen edges */}
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewIdx((i) =>
+                      i === null
+                        ? i
+                        : (i - 1 + images.length) % images.length,
+                    );
+                  }}
+                  className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                  aria-label="Өмнөх"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewIdx((i) =>
+                      i === null ? i : (i + 1) % images.length,
+                    );
+                  }}
+                  className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+                  aria-label="Дараах"
+                >
+                  <ChevronRight size={20} />
+                </button>
+                {/* Dots — above the action bar */}
+                <div className="absolute inset-x-0 bottom-28 flex justify-center gap-1.5">
+                  {images.map((_, i) => (
+                    <span
+                      key={i}
+                      className={cn(
+                        "h-1.5 rounded-full transition-all",
+                        i === previewIdx
+                          ? "w-5 bg-primary"
+                          : "w-1.5 bg-white/40",
+                      )}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Action bar — screen bottom-center. pb-safe clears the iOS home
+                indicator; the overlay's z-[60] sits above the bottom nav so the
+                bar isn't painted over on mobile. */}
+            <div
+              className="absolute inset-x-0 bottom-6 flex items-center justify-center gap-2 px-4 pb-safe"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button
+                size="sm"
+                className="rounded-full"
+                onClick={() => handleDownload(images[previewIdx], previewIdx)}
               >
-                <X size={16} />
-              </button>
-
-              {/* Prev / Next */}
-              {images.length > 1 && (
-                <>
-                  <button
-                    onClick={() => setPreviewIdx((i) => (i === null ? i : (i - 1 + images.length) % images.length))}
-                    className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
-                    aria-label="Өмнөх"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-                  <button
-                    onClick={() => setPreviewIdx((i) => (i === null ? i : (i + 1) % images.length))}
-                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
-                    aria-label="Дараах"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                  {/* Dots */}
-                  <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 gap-1.5">
-                    {images.map((_, i) => (
-                      <span key={i} className={cn("h-1.5 rounded-full transition-all", i === previewIdx ? "w-5 bg-primary" : "w-1.5 bg-white/40")} />
-                    ))}
-                  </div>
-                </>
-              )}
-
-              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
-                <Button size="sm" className="rounded-full" onClick={() => handleDownload(images[previewIdx], previewIdx)}>
-                  <Download size={14} className="mr-1" /> {t("download")}
-                </Button>
+                <Download size={14} />
+                <span>{t("download")}</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full border-white/20 bg-black/40 text-white hover:bg-black/60"
+                onClick={() => handleShare(images[previewIdx])}
+                aria-label={t("share")}
+              >
+                <Share2 size={14} />
+                <span className="hidden sm:inline">{t("share")}</span>
+              </Button>
+              {resultPaths[previewIdx] && (
                 <Button
                   size="sm"
                   variant="outline"
                   className="rounded-full border-white/20 bg-black/40 text-white hover:bg-black/60"
-                  onClick={() => handleShare(images[previewIdx])}
+                  onClick={() => handleSetProfile(resultPaths[previewIdx])}
+                  disabled={settingAvatar}
+                  aria-label={t("setAsProfilePicture")}
                 >
-                  <Share2 size={14} className="mr-1" /> {t("share")}
+                  <UserRound size={14} />
+                  <span className="hidden sm:inline">
+                    {t("setAsProfilePicture")}
+                  </span>
                 </Button>
-                {resultPaths[previewIdx] && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-full border-white/20 bg-black/40 text-white hover:bg-black/60"
-                    onClick={() => handleSetProfile(resultPaths[previewIdx])}
-                    disabled={settingAvatar}
-                  >
-                    <UserRound size={14} className="mr-1" /> {t("setAsProfilePicture")}
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -521,11 +730,14 @@ function OutputContent() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="flex items-center gap-2 text-lg font-bold">
-                <EyeOff size={18} className="text-muted-foreground" /> Feed-ээс нууцлах уу?
+                <EyeOff size={18} className="text-muted-foreground" /> Feed-ээс
+                нууцлах уу?
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Энэ зургийг нууцлахын тулд эдэлсэн{" "}
-                <span className="font-semibold text-foreground">{formatMnt(unshareCost)}</span>{" "}
+                <span className="font-semibold text-foreground">
+                  {formatMnt(unshareCost)}
+                </span>{" "}
                 хямдралаа буцаан төлнө. Үргэлжлүүлэх үү?
               </p>
               <div className="mt-5 flex gap-2">
@@ -535,7 +747,9 @@ function OutputContent() {
                   variant="shadow"
                   className="flex-1 justify-center rounded-full font-bold"
                 >
-                  {savingShare ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                  {savingShare ? (
+                    <Loader2 size={14} className="mr-1 animate-spin" />
+                  ) : null}
                   Төлөөд нууцлах
                 </Button>
                 <Button
@@ -557,11 +771,13 @@ function OutputContent() {
 
 export default function OutputPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-full items-center justify-center">
-        <Loader2 size={32} className="animate-spin text-primary" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex min-h-full items-center justify-center">
+          <Loader2 size={32} className="animate-spin text-primary" />
+        </div>
+      }
+    >
       <OutputContent />
     </Suspense>
   );

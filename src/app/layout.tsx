@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
 import { Manrope, Montserrat, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -73,27 +72,24 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Flat-style preference is a cookie so we can apply the class on the server
-  // (before paint, no FOUC). next-themes manages the light/dark class on the
-  // client and never strips `flat`, so the two axes compose cleanly.
-  const flat = (await cookies()).get("ui-style")?.value === "flat";
-
   return (
     <html
       lang="mn"
       suppressHydrationWarning
-      className={`${manrope.variable} ${montserrat.variable} ${geistMono.variable} h-dvh overflow-clip antialiased${flat ? " flat" : ""}`}
+      className={`${manrope.variable} ${montserrat.variable} ${geistMono.variable} h-dvh overflow-clip antialiased`}
     >
       {/* suppressHydrationWarning: some browser extensions (e.g. ColorZilla adds
           cz-shortcut-listen) inject attributes on <body> before hydration. */}
       <body className="flex h-full flex-col overflow-hidden" suppressHydrationWarning>
         <Providers>
           <Header />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex flex-1 flex-col overflow-y-auto overflow-x-clip">
             {/* Padding lives on this inner wrapper, not <main>: WebKit/Blink drop a
                 scroll container's own padding-bottom at scroll end, hiding content
-                behind the fixed bottom nav. A child's padding is honored. */}
-            <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-4">{children}</div>
+                behind the fixed bottom nav. A child's padding is honored.
+                flex-1 gives the wrapper a definite height so pages can center with
+                min-h-full (e.g. error.tsx / not-found.tsx); block flow is unchanged. */}
+            <div className="flex-1 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-4">{children}</div>
           </main>
           <MobileBottomNav />
           <Toaster />

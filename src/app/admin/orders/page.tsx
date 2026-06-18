@@ -51,10 +51,21 @@ export default async function AdminOrdersPage() {
   const usersById = new Map((usersRes.data ?? []).map((u) => [u.id, u as UserRow]));
   const printByOrder = new Map(prints.map((p) => [p.order_id, p]));
 
-  // 3) Batch-sign thumbnails for the print rows we loaded (single storage call).
-  const printPaths = prints.map((p) => p.asset_storage_path);
+  // 3) Resolve thumb_path for each print asset (fall back to asset_storage_path
+  //    when the asset has no thumb yet), then batch-sign in one call.
+  const assetPaths = [...new Set(prints.map((p) => p.asset_storage_path))];
+  const assetsRes = assetPaths.length
+    ? await admin.from("assets").select("storage_path, thumb_path").in("storage_path", assetPaths)
+    : { data: [] as { storage_path: string; thumb_path: string | null }[] };
+  const thumbPathByStoragePath = new Map(
+    (assetsRes.data ?? []).map((a) => [a.storage_path, a.thumb_path ?? a.storage_path])
+  );
+
+  const printPaths = prints.map(
+    (p) => thumbPathByStoragePath.get(p.asset_storage_path) ?? p.asset_storage_path
+  );
   const signed = printPaths.length ? await getSignedUrls(OUTPUTS_BUCKET, printPaths, 3600) : [];
-  const thumbByPath = new Map(printPaths.map((path, i) => [path, signed[i] ?? ""]));
+  const thumbByPath = new Map(prints.map((p, i) => [p.asset_storage_path, signed[i] ?? ""]));
 
   const items: AdminOrderItem[] = orders.map((o) => {
     const pr = printByOrder.get(o.id);

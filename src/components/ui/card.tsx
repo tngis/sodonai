@@ -63,15 +63,14 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        // bg-transparent (not bg-card): the card is chassis-coloured anyway, so
-        // letting the page-level grain show through keeps the texture continuous
-        // across the whole chassis. Depth still comes from --shadow-card.
-        "group/card relative flex flex-col overflow-hidden rounded-xl border  flat:border-border bg-transparent text-sm text-card-foreground shadow-(--shadow-card) has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        // bg-card: a distinct elevated surface (--card) so image cards (presets,
+        // categories, featured) lift off the white/dark page body instead of
+        // blending into it. Border + --shadow-card add the edge.
+        "group/card relative flex flex-col overflow-hidden rounded-xl border bg-card text-sm text-card-foreground shadow-(--shadow-card) has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         // Keep real content above the decorative screw/vent layer (z-0).
         detail &&
           "[&>*:not([aria-hidden])]:relative [&>*:not([aria-hidden])]:z-10",
-        interactive &&
-          "cursor-pointer transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1 hover:shadow-(--shadow-floating)",
+        interactive && "cursor-pointer",
         className,
       )}
       {...props}
