@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
+import sharp from "sharp";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { r2, EXAMPLES_BUCKET, publicUrl } from "@/lib/r2/client";
@@ -224,16 +225,21 @@ export async function uploadExampleImage(formData: FormData): Promise<string> {
   if (!ALLOWED_TYPES.includes(file.type)) throw new Error("Зөвхөн JPEG, PNG, WEBP зураг оруулна уу.");
   if (file.size > MAX_FILE_SIZE) throw new Error("Зургийн хэмжээ 10MB-аас хэтрэхгүй байх ёстой.");
 
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const path = `${randomUUID()}.${ext}`;
-  const body = new Uint8Array(await file.arrayBuffer());
+  const path = `${randomUUID()}.webp`;
+  const inputBuf = Buffer.from(await file.arrayBuffer());
+  const body = await sharp(inputBuf, { failOn: "none" })
+    .rotate()
+    .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 85 })
+    .toBuffer();
 
   await r2().send(
     new PutObjectCommand({
       Bucket: EXAMPLES_BUCKET,
       Key: path,
       Body: body,
-      ContentType: file.type,
+      ContentType: "image/webp",
+      CacheControl: "public, max-age=31536000, immutable",
     })
   );
 
