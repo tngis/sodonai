@@ -1,0 +1,22 @@
+name: fail-stale-generations
+
+# Backstop sweep that fails generations stuck in 'queued'/'processing' and
+# refunds the user (the route is idempotent). Runs on a schedule and can be
+# triggered manually. Requires the CRON_SECRET repo secret to match the
+# deployment's CRON_SECRET env var.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger stale-generation sweep
+        # -f fails the step on any non-2xx HTTP status; -sS keeps output quiet
+        # but still surfaces errors. authorized() accepts the Bearer header.
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://sodonai.vercel.app/api/cron/fail-stale-generations

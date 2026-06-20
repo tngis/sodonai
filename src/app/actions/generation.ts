@@ -119,11 +119,26 @@ export async function runGeneration({
       ),
     ]);
 
-    await updateGen({
-      status: "done",
-      progress: 100,
-      result_urls: resultPaths,
-    });
+    // Guard the terminal write on status='processing'. If the fail-stale-
+    // generations cron already claimed this row (status flipped to 'failed' and
+    // the user refunded), this update affects 0 rows — so we never silently
+    // overwrite it back to 'done', which would mean refunded AND delivered.
+    const { data: doneClaim } = await admin
+      .from("generations")
+      .update({
+        status: "done",
+        progress: 100,
+        result_urls: resultPaths,
+      } as GenUpdate)
+      .eq("id", generationId)
+      .eq("status", "processing")
+      .select("id");
+    if (!doneClaim?.length) {
+      log("generation.done_skipped", {
+        reason: "row no longer 'processing' — claimed by stale-sweep; refund kept, no double-write",
+      });
+      return;
+    }
     await admin
       .from("orders")
       .update({ status: "completed" } as OrderUpdate)
