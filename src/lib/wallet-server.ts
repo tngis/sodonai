@@ -81,6 +81,8 @@ export async function refundForGeneration(params: {
   userId: string;
   orderId: string;
   generationId: string;
+  /** Retry counter — keys the refund per attempt so each failed run refunds once. */
+  attempt?: number;
 }): Promise<void> {
   const admin = createAdminClient();
   const { data: payment } = await admin
@@ -100,9 +102,47 @@ export async function refundForGeneration(params: {
     userId: params.userId,
     amountMnt: amount,
     type: "refund",
-    idempotencyKey: `refund:${params.generationId}`,
+    idempotencyKey: `refund:${params.generationId}:${params.attempt ?? 0}`,
     orderId: params.orderId,
     paymentId,
     note: "Амжилтгүй болсон үүсгэлтийн буцаалт",
+  });
+}
+
+// Reverses the refund of a previously-failed generation when an admin re-runs it,
+// so a retry that ultimately succeeds is still paid for (charged iff a result was
+// delivered). Mirrors refundForGeneration: only re-charges when an actual payment
+// existed, and is idempotent per (generation, attempt). Returns the debit result —
+// `ok:false` means the user already spent the refunded balance, so the caller
+// should block the retry to keep the ledger consistent.
+export async function rechargeForRetry(params: {
+  userId: string;
+  orderId: string;
+  generationId: string;
+  /** The attempt being reversed (the failed run's attempt number). */
+  attempt: number;
+}): Promise<DebitResult> {
+  const admin = createAdminClient();
+  const { data: payment } = await admin
+    .from("payments")
+    .select("id, amount_mnt")
+    .eq("order_id", params.orderId)
+    .eq("status", "success")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!payment) return { ok: true }; // free (no-pay) path — no refund to reverse
+  const { id: paymentId, amount_mnt: amount } = payment as { id: string; amount_mnt: number };
+  if (!amount || amount <= 0) return { ok: true };
+
+  return debitWallet({
+    userId: params.userId,
+    amountMnt: amount,
+    type: "adjustment",
+    idempotencyKey: `recharge:${params.generationId}:${params.attempt}`,
+    orderId: params.orderId,
+    paymentId,
+    note: "Дахин оролдлогын төлбөр (буцаалт сэргээв)",
   });
 }

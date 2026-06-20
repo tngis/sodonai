@@ -1,9 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaff } from "@/lib/auth-admin";
 import { PresetManager } from "@/components/admin/preset-manager";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPresetsPage() {
+  await requireStaff("catalog");
   const admin = createAdminClient();
   const [presetsRes, catsRes, suggestionsRes] = await Promise.all([
     admin.from("presets").select("*").order("sort_order"),

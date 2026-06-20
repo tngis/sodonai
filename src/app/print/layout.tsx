@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Боднор хэвлэл",
+  title: "Хэвлэмэл зураг",
   description: "AI зургаа жаазалж, хэвлүүлж, хүргүүлэн авах.",
   robots: { index: false, follow: false },
 };

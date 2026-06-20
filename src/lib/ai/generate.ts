@@ -9,7 +9,6 @@ export interface AIGenerateInput {
   options: {
     ratio?: string;
     background?: string | null;
-    intensity?: number | null;
   };
 }
 

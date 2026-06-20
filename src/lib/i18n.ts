@@ -5,7 +5,7 @@ export const translations = {
     // Nav
     home: "Нүүр",
     generate: "Үүсгэх",
-    gallery: "Галлери",
+    gallery: "Галерей",
     orders: "Захиалга",
     profile: "Профайл",
     settings: "Тохиргоо",
@@ -14,7 +14,7 @@ export const translations = {
     accountMenu: "Хэрэглэгчийн цэс",
     loginPromptTitle: "Нэвтэрч орно уу",
     loginPromptDesc:
-      "Зураг үүсгэх, галлерейгээ хадгалах, захиалгаа хянахын тулд нэвтэрнэ үү.",
+      "Зураг үүсгэх, галерейгээ хадгалах, захиалгаа хянахын тулд нэвтэрнэ үү.",
 
     // Home
     heroTitle: "Зураг засах, бүтээх",
@@ -25,12 +25,12 @@ export const translations = {
     categories: "Ангилал",
     featuredPresets: "Онцлох пресет",
     howItWorks: "Хэрхэн ажилладаг вэ?",
-    step1Title: "Пресет сонго",
-    step1Desc: "Хийх зүйлийнхээ ангиллаас пресет сонго.",
-    step2Title: "Зураг оруул",
-    step2Desc: "Зургаа оруулах эсвэл камераар дар.",
+    step1Title: "Пресет сонгох",
+    step1Desc: "Хүссэн ангиллаасаа пресет сонгоно уу.",
+    step2Title: "Зураг оруулах",
+    step2Desc: "Зургаа оруулах эсвэл камераар дарна уу.",
     step3Title: "Төлж авах",
-    step3Desc: "QPay-р төлж, бэлэн зургаа авна.",
+    step3Desc: "Хэтэвчээрээ эсвэл QPay-р төлөөд бэлэн зургаа аваарай.",
 
     // Auth
     back: "Буцах",
@@ -49,7 +49,7 @@ export const translations = {
     continueBtn: "Үргэлжлүүлэх",
     welcomeBack: "Тавтай морил",
     viewProfile: "Профайлаа харах",
-    loginRequired: "Та зураг үүсгэхийн тулд нэвтрэх ёстой",
+    loginRequired: "Зураг үүсгэхийн тулд нэвтэрнэ үү.",
 
     // Category
     presets: "Пресетүүд",
@@ -66,7 +66,7 @@ export const translations = {
     imageReadyToastDesc: "Зургийг харахын тулд дарна уу.",
     viewImage: "Харах",
     genStartedToast: "Боловсруулалт эхэллээ",
-    genStartedToastDesc: "Зураг бэлэн болмогц мэдэгдэнэ. Галлерейгээс хянаарай.",
+    genStartedToastDesc: "Зураг бэлэн болмогц мэдэгдэнэ. Галерейгээс хянаарай.",
     generationFailedNotif: "Боловсруулалт амжилтгүй боллоо",
     noNotifications: "Мэдэгдэл байхгүй байна",
 
@@ -77,27 +77,26 @@ export const translations = {
     uploadImages: "Зургаа оруулна уу",
     uploadDesc: "Дарж сонгох эсвэл чирж оруулна уу",
     cameraCapture: "Камераар дарах",
-    exampleInputs: "Жишээ оруулах зургууд",
-    warnings: "Анхааруулга",
+    exampleInputs: "Оруулах зургийн жишээ",
+    warnings: "Зөвлөмж, анхааруулга",
     // Preset detail / intro
     presetAbout: "Тайлбар",
     presetComparison: "Өмнө / дараа",
     presetSample: "Жишээ үр дүн",
     photosNeeded: "Шаардлагатай зураг",
     details: "Дэлгэрэнгүй",
-    whatYouGet: "Юу гарах вэ?",
+    whatYouGet: "Та юу авах вэ?",
     sampleNote: "Энэ нь жишээ үр дүн бөгөөд таны оруулсан зургаас хамаарч өөр байж болно.",
     sampleSoon: "Жишээ зураг удахгүй нэмэгдэнэ",
     startWithPreset: "Энэ пресетээр эхлэх",
     flowUploadTitle: "Зураг оруулах",
     flowUploadDesc: "Шаардлагатай зургаа оруулах эсвэл камераар авна.",
     flowPayTitle: "Төлбөр төлөх",
-    flowPayDesc: "QPay болон бусад аргаар найдвартай төлнө.",
+    flowPayDesc: "Хэтэвч эсвэл QPay-р найдвартай төлнө.",
     flowResultTitle: "Үр дүн авах",
     flowResultDesc: "AI боловсруулсан бэлэн зургаа харж, татаж авна.",
     outputRatio: "Гаралтын харьцаа",
     backgroundPreset: "Фоны пресет",
-    styleIntensity: "Загварын эрч",
     privateToggle: "Хувийн (зөвхөн би харах)",
     shareToggle: "Бусдад харуулах",
     shareToggleHelp:
@@ -107,12 +106,14 @@ export const translations = {
     regularPriceLabel: "Энгийн үнэ",
     discountLabel: "Хямдрал",
     sharedBadge: "Нийтэд харагдаж байна",
-    unshareAction: "Feed-ээс нууцлах",
+    unshareAction: "Нийтээс нууцлах",
     unshareHelp:
       "Энэ зураг нийтийн галерейд харагдаж байна. Нууцалбал эдэлсэн хямдралаа буцаан төлж, дахин нийтлэх боломжгүй болно.",
     qpayTitle: "QPay-р төлөх",
     qpayDesc: "QR кодыг уншуулах эсвэл банкны апп сонгох",
     bankApps: "Банкны апп",
+    payNow: "Төлбөр төлөх",
+    walletPayConfirm: "Энэ дүнг хэтэвчнээсээ төлөхийг баталгаажуулна уу?",
     termsCheckbox:
       "Үйлчилгээний нөхцлийг зөвшөөрч байна. Үүсгэлт эхэлсний дараа төлбөр буцаах боломжгүй гэдгийг ойлгосон.",
     payGenerate: "Төлөөд үүсгэх",
@@ -138,16 +139,16 @@ export const translations = {
     // Output
     outputTitle: "Таны зураг бэлэн боллоо!",
     download: "Татах",
-    saveGallery: "Галлерид хадгалах",
+    saveGallery: "Галерейд хадгалах",
     share: "Хуваалцах",
     regenerate: "Дахин үүсгэх",
-    report: "Мэдүүлэх",
-    generatedImages: "Гарсан зургууд",
-    autoSavedGallery: "Зургууд галлерид автоматаар хадгалагдлаа",
+    report: "Гомдол мэдүүлэх",
+    generatedImages: "Үүсгэсэн зургууд",
+    autoSavedGallery: "Зургууд галерейд автоматаар хадгалагдлаа",
 
-    // Print ("Боднор авах")
-    orderPrint: "Боднор авах",
-    printTitle: "Боднор хэвлэл захиалах",
+    // Print
+    orderPrint: "Хэвлүүлж авах",
+    printTitle: "Хэвлэмэл зураг захиалах",
     printPickImage: "Зураг сонгох",
     printPickImageDesc: "Хэвлүүлэх зургаа сонгоно уу",
     printFrameStep: "Жааз",
@@ -164,7 +165,7 @@ export const translations = {
     printOrdered: "Захиалга баталгаажлаа!",
     printSelectImageFirst: "Эхлээд зураг сонгоно уу.",
     printSelectAddressFirst: "Хүргэлтийн хаяг сонгоно уу.",
-    noGalleryImages: "Галлерид зураг алга. Эхлээд зураг үүсгээрэй.",
+    noGalleryImages: "Галерейд зураг алга. Эхлээд зураг үүсгээрэй.",
     frameLabel: "Жааз",
     sizeLabel: "Хэмжээ",
 
@@ -200,12 +201,16 @@ export const translations = {
     delvDelivered: "Хүргэгдсэн",
 
     // Profile
-    myGallery: "Миний галлери",
+    myGallery: "Миний галерей",
     myOrders: "Миний захиалга",
+    ordersAll: "Бүгд",
+    ordersAi: "AI үүсгэлт",
+    ordersPrint: "Жааз",
     myPayments: "Төлбөрийн түүх",
     orderStatus: "Захиалгын төлөв",
     pending: "Хүлээгдэж байна",
     processing: "Боловсруулж байна",
+    paid: "Төлсөн",
     completed: "Дууссан",
     failed: "Амжилтгүй",
 
@@ -215,8 +220,8 @@ export const translations = {
     favoritePresets: "Дуртай пресетүүд",
     profilePicture: "Профайл зураг",
     uploadFromDevice: "Төхөөрөмжөөс оруулах",
-    chooseFromGallery: "Галлерээс сонгох",
-    pickFromGallery: "Галлерээс зураг сонгох",
+    chooseFromGallery: "Галерейгээс сонгох",
+    pickFromGallery: "Галерейгээс зураг сонгох",
     setAsProfilePicture: "Профайл зураг болгох",
     changePhoto: "Зураг солих",
     removePhoto: "Зураг устгах",
@@ -286,7 +291,7 @@ export const translations = {
     // Empty states
     noImages: "Зураг байхгүй байна",
     noOrders: "Захиалга байхгүй байна",
-    startGenerating: "Зураг үүсгэж эхэл",
+    startGenerating: "Зураг үүсгэж эхлэх",
   },
   en: {
     home: "Home",
@@ -315,7 +320,7 @@ export const translations = {
     step2Title: "Upload photos",
     step2Desc: "Upload your photos or take with camera.",
     step3Title: "Pay & receive",
-    step3Desc: "Pay with QPay and get your finished image.",
+    step3Desc: "Pay with your wallet or QPay and get your finished image.",
 
     back: "Back",
     phoneLogin: "Sign in with phone number",
@@ -374,12 +379,11 @@ export const translations = {
     flowUploadTitle: "Upload photos",
     flowUploadDesc: "Upload the required photos or take them with your camera.",
     flowPayTitle: "Pay",
-    flowPayDesc: "Pay securely with QPay or another method.",
+    flowPayDesc: "Pay securely with your wallet or QPay.",
     flowResultTitle: "Get your result",
     flowResultDesc: "View and download your finished AI-processed photo.",
     outputRatio: "Output ratio",
     backgroundPreset: "Background preset",
-    styleIntensity: "Style intensity",
     privateToggle: "Private (only visible to me)",
     shareToggle: "Show to others",
     shareToggleHelp:
@@ -395,6 +399,8 @@ export const translations = {
     qpayTitle: "Pay with QPay",
     qpayDesc: "Scan the QR code or choose your banking app",
     bankApps: "Banking apps",
+    payNow: "Pay now",
+    walletPayConfirm: "Confirm paying this amount from your wallet?",
     termsCheckbox:
       "I agree to the Terms of Service. I understand that refunds are not available once generation begins.",
     payGenerate: "Pay & Generate",
@@ -481,10 +487,14 @@ export const translations = {
 
     myGallery: "My Gallery",
     myOrders: "My Orders",
+    ordersAll: "All",
+    ordersAi: "AI",
+    ordersPrint: "Frame",
     myPayments: "Payment history",
     orderStatus: "Order status",
     pending: "Pending",
     processing: "Processing",
+    paid: "Paid",
     completed: "Completed",
     failed: "Failed",
 

@@ -30,7 +30,6 @@ export async function createPaymentIntent(formData: FormData): Promise<PaymentIn
   const presetId = formData.get("presetId") as string;
   const ratio = formData.get("ratio") as string;
   const background = (formData.get("background") as string) || null;
-  const intensity = formData.has("intensity") ? Number(formData.get("intensity")) : null;
   const isPrivate = formData.get("isPrivate") !== "false";
 
   // Price the order server-side from the preset (never trust a client amount):
@@ -60,7 +59,7 @@ export async function createPaymentIntent(formData: FormData): Promise<PaymentIn
       preset_id: presetId,
       status: "pending" as const,
       amount_mnt: amountMnt,
-      options_snapshot: { ratio, background, intensity, isPrivate, pricing: { full: pricing.full, discount: pricing.discount, paid: pricing.paid }, uploadPaths: [] as string[] },
+      options_snapshot: { ratio, background, isPrivate, pricing: { full: pricing.full, discount: pricing.discount, paid: pricing.paid }, uploadPaths: [] as string[] },
     })
     .select()
     .single();
@@ -85,7 +84,7 @@ export async function createPaymentIntent(formData: FormData): Promise<PaymentIn
   await admin
     .from("orders")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update({ options_snapshot: { ratio, background, intensity, isPrivate, pricing, uploadPaths } } as any)
+    .update({ options_snapshot: { ratio, background, isPrivate, pricing, uploadPaths } } as any)
     .eq("id", order.id);
 
   // Create QPay invoice (mock or real depending on QPAY_MOCK env var)
@@ -122,6 +121,184 @@ export async function createPaymentIntent(formData: FormData): Promise<PaymentIn
   };
 }
 
+export interface ResumePaymentResult {
+  paymentId: string;
+  qrImage: string;
+  deepLinks: QPayDeepLink[];
+}
+
+// Re-issue the QPay QR for a still-pending order so the user can finish paying
+// from /orders. Reuses the existing order + payment row; re-creates the invoice
+// (handles QPay expiry; deterministic for the mock) and points the payment at it.
+// The poll/webhook/cron all key off payments.qpay_invoice_id, so they stay in sync.
+export async function resumePayment(orderId: string): Promise<ResumePaymentResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Нэвтэрч орно уу.");
+
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id, status, amount_mnt, preset_id")
+    .eq("id", orderId)
+    .eq("user_id", user.id)
+    .single();
+  if (!order) throw new Error("Захиалга олдсонгүй.");
+  if (order.status !== "pending") throw new Error("Энэ захиалга төлбөр хүлээгээгүй байна.");
+
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("order_id", orderId)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!payment) throw new Error("Төлбөрийн мэдээлэл олдсонгүй.");
+
+  const invoice = await createInvoice(
+    order.id,
+    order.amount_mnt,
+    `aistudio.mn — ${order.preset_id ?? "хэвлэл"}`,
+  );
+
+  // payments has no owner-update RLS policy → point the row at the (possibly new)
+  // invoice id via the admin client.
+  const admin = createAdminClient();
+  await admin.from("payments").update({ qpay_invoice_id: invoice.invoiceId }).eq("id", payment.id);
+
+  return { paymentId: payment.id, qrImage: invoice.qrImage, deepLinks: invoice.deepLinks };
+}
+
+interface PendingSnapshot {
+  ratio: string;
+  background: string | null;
+  isPrivate: boolean;
+  pricing?: { full: number; discount: number; paid: number };
+  uploadPaths: string[];
+}
+
+export interface ResumeWalletResult {
+  orderId: string;
+  kind: "print" | "generation";
+  generationId: string | null;
+}
+
+// Pay an existing *pending* order from the wallet (the /orders resume flow's
+// wallet option). Settles synchronously like payWithWallet: debit → mark the
+// abandoned QPay invoice failed → record the wallet payment → flip the order to
+// paid → (for generation orders) queue and run it.
+export async function payPendingWithWallet(orderId: string): Promise<ResumeWalletResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Нэвтэрч орно уу.");
+
+  const { data: orderRow } = await supabase
+    .from("orders")
+    .select("id, status, amount_mnt, preset_id, kind, options_snapshot")
+    .eq("id", orderId)
+    .eq("user_id", user.id)
+    .single();
+  const order = orderRow as Pick<
+    OrderRow,
+    "id" | "status" | "amount_mnt" | "preset_id" | "kind" | "options_snapshot"
+  > | null;
+  if (!order) throw new Error("Захиалга олдсонгүй.");
+  if (order.status !== "pending") throw new Error("Энэ захиалга төлбөр хүлээгээгүй байна.");
+
+  const admin = createAdminClient();
+
+  // Debit the wallet atomically (idempotent on the order id). Insufficient → throw.
+  const debit = await debitWallet({
+    userId: user.id,
+    amountMnt: order.amount_mnt,
+    idempotencyKey: `spend:${order.id}`,
+    orderId: order.id,
+    note: `aistudio.mn — ${order.preset_id ?? "хэвлэл"}`,
+  });
+  if (!debit.ok) throw new Error("Хэтэвчийн үлдэгдэл хүрэлцэхгүй байна.");
+
+  // Cancel the abandoned QPay invoice(s) so the poll/webhook/cron can't later
+  // double-charge this order.
+  await admin
+    .from("payments")
+    .update({ status: "failed" })
+    .eq("order_id", order.id)
+    .eq("status", "pending");
+
+  // Record the settled wallet payment — refundForGeneration finds this by order_id.
+  await admin.from("payments").insert({
+    order_id: order.id,
+    user_id: user.id,
+    provider: "wallet" as const,
+    status: "success" as const,
+    amount_mnt: order.amount_mnt,
+    paid_at: new Date().toISOString(),
+  });
+
+  await admin
+    .from("orders")
+    .update({ status: "paid" } as OrderUpdate)
+    .eq("id", order.id)
+    .eq("status", "pending");
+
+  // Print orders have no AI generation — fulfilled manually by an admin.
+  if (order.kind === "print" || !order.preset_id) {
+    return { orderId: order.id, kind: "print", generationId: null };
+  }
+
+  // Reuse an existing generation if any; otherwise create + run it.
+  const { data: existing } = await admin
+    .from("generations")
+    .select("id")
+    .eq("order_id", order.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existing) {
+    return { orderId: order.id, kind: "generation", generationId: (existing as { id: string }).id };
+  }
+
+  const snapshot = (order.options_snapshot ?? {}) as unknown as PendingSnapshot;
+  const pricing = snapshot.pricing ?? { full: order.amount_mnt, discount: 0, paid: order.amount_mnt };
+
+  const { data: gen } = await admin
+    .from("generations")
+    .insert({
+      order_id: order.id,
+      user_id: user.id,
+      status: "queued" as const,
+      progress: 0,
+      queue_position: 1,
+      full_price_mnt: pricing.full,
+      discount_mnt: pricing.discount,
+      paid_price_mnt: pricing.paid,
+      shared_to_feed: !snapshot.isPrivate,
+    })
+    .select()
+    .single();
+  if (!gen) throw new Error("Боловсруулалт эхлүүлэхэд алдаа гарлаа.");
+
+  const { prompt: internalPrompt, model } = await getPresetModelConfig(order.preset_id);
+
+  after(() =>
+    runGeneration({
+      generationId: gen.id,
+      orderId: order.id,
+      userId: user.id,
+      uploadPaths: snapshot.uploadPaths ?? [],
+      internalPrompt,
+      model,
+      options: {
+        ratio: snapshot.ratio,
+        background: snapshot.background,
+        isPrivate: snapshot.isPrivate,
+      },
+    }),
+  );
+
+  return { orderId: order.id, kind: "generation", generationId: gen.id };
+}
+
 export interface WalletPaymentResult {
   orderId: string;
   generationId: string;
@@ -141,7 +318,6 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
   const presetId = formData.get("presetId") as string;
   const ratio = formData.get("ratio") as string;
   const background = (formData.get("background") as string) || null;
-  const intensity = formData.has("intensity") ? Number(formData.get("intensity")) : null;
   const isPrivate = formData.get("isPrivate") !== "false";
 
   // Price the order server-side (see createPaymentIntent) and snapshot it.
@@ -173,7 +349,7 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
       preset_id: presetId,
       status: "pending" as const,
       amount_mnt: amountMnt,
-      options_snapshot: { ratio, background, intensity, isPrivate, pricing: { full: pricing.full, discount: pricing.discount, paid: pricing.paid }, uploadPaths: [] as string[] },
+      options_snapshot: { ratio, background, isPrivate, pricing: { full: pricing.full, discount: pricing.discount, paid: pricing.paid }, uploadPaths: [] as string[] },
     })
     .select()
     .single();
@@ -198,7 +374,7 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
   await admin
     .from("orders")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .update({ options_snapshot: { ratio, background, intensity, isPrivate, pricing, uploadPaths } } as any)
+    .update({ options_snapshot: { ratio, background, isPrivate, pricing, uploadPaths } } as any)
     .eq("id", order.id);
 
   // Debit the wallet atomically (idempotent on `spend:{orderId}`). If the
@@ -260,7 +436,7 @@ export async function payWithWallet(formData: FormData): Promise<WalletPaymentRe
       uploadPaths,
       internalPrompt,
       model,
-      options: { ratio, background, intensity, isPrivate },
+      options: { ratio, background, isPrivate },
     })
   );
 

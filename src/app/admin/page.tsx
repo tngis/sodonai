@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaff } from "@/lib/auth-admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { OrderStatus } from "@/lib/supabase/types";
@@ -26,6 +27,8 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
 }
 
 export default async function AdminDashboardPage() {
+  // order_manager has no dashboard access — redirected to its orders tab.
+  await requireStaff("dashboard");
   const admin = createAdminClient();
 
   const [ordersRes, paymentsRes, gensRes, recentRes, presetsRes] = await Promise.all([
@@ -100,7 +103,7 @@ export default async function AdminDashboardPage() {
                   <div key={o.id} className="flex items-center justify-between gap-3 p-3 text-sm">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">
-                        {o.preset_id ? (presetNames.get(o.preset_id) ?? o.preset_id) : "Боднор хэвлэл"}
+                        {o.preset_id ? (presetNames.get(o.preset_id) ?? o.preset_id) : "Хэвлэмэл зураг"}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(o.created_at).toLocaleString("mn-MN")}

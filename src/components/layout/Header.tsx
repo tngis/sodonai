@@ -38,6 +38,7 @@ import { NotificationsPanel } from "@/components/notifications/notifications-pan
 import { ThemeToggle } from "./theme-toggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEscapeRegister } from "@/hooks/use-overlay-escape";
+import { isStaffRole, roleHome } from "@/lib/roles";
 
 export function Header() {
   const { t, lang, setLang } = useLang();
@@ -49,7 +50,7 @@ export function Header() {
   // load), not a per-component getUser()/getProfile() round-trip on each mount.
   const avatarUrl = profile?.avatarUrl ?? null;
   const profileName = profile?.name ?? null;
-  const isAdmin = profile?.isAdmin ?? false;
+  const staffRole = isStaffRole(profile?.role) ? profile.role : null;
 
   // Notifications derived from generation state (no separate table).
   const { finished, loading: notifLoading } = useUserGenerations();
@@ -102,7 +103,7 @@ export function Header() {
     { href: "/orders", icon: ShoppingBag, label: t("myOrders") },
     { href: "/settings", icon: Settings, label: t("settings") },
     { href: "/help", icon: HelpCircle, label: t("helpFaq") },
-    ...(isAdmin ? [{ href: "/admin", icon: ShieldCheck, label: "Админ" }] : []),
+    ...(staffRole ? [{ href: roleHome(staffRole), icon: ShieldCheck, label: "Админ" }] : []),
   ];
   // Only the first link matching the current path is "active".
   const activeMenuIndex = menuLinks.findIndex(

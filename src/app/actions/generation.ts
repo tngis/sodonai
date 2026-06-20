@@ -5,15 +5,14 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  uploadFile,
   storeOutputFile,
   storeThumbFile,
-  validateImageFile,
   getSignedUrls,
   UPLOADS_BUCKET,
 } from "@/lib/supabase/storage";
 import { getPresetModelConfig } from "@/lib/presets-server";
-import { refundForGeneration } from "@/lib/wallet-server";
+import { refundForGeneration, rechargeForRetry } from "@/lib/wallet-server";
+import { assertCapability } from "@/lib/auth-admin";
 import { callAI } from "@/lib/ai/generate";
 import type { Database } from "@/lib/supabase/types";
 
@@ -21,109 +20,6 @@ type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 type GenerationRow = Database["public"]["Tables"]["generations"]["Row"];
 type GenUpdate = Database["public"]["Tables"]["generations"]["Update"];
 type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
-
-export interface SubmitOrderResult {
-  generationId: string;
-  orderId: string;
-}
-
-export async function submitOrder(
-  formData: FormData,
-): Promise<SubmitOrderResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Нэвтэрч орно уу.");
-
-  const presetId = formData.get("presetId") as string;
-  const amountMnt = Number(formData.get("amountMnt"));
-  const ratio = formData.get("ratio") as string;
-  const background = (formData.get("background") as string) || null;
-  const intensity = formData.has("intensity")
-    ? Number(formData.get("intensity"))
-    : null;
-  const isPrivate = formData.get("isPrivate") !== "false";
-
-  const { prompt: internalPrompt, model } =
-    await getPresetModelConfig(presetId);
-
-  // Collect and validate uploaded files
-  const files: File[] = [];
-  let i = 0;
-  while (formData.has(`file_${i}`)) {
-    const file = formData.get(`file_${i}`) as File;
-    const err = validateImageFile(file);
-    if (err) throw new Error(err);
-    files.push(file);
-    i++;
-  }
-  if (files.length === 0) throw new Error("Зураг оруулаагүй байна.");
-
-  // Create order (status=pending — Phase 3 flips to 'paid' after QPay)
-  const orderRes = await supabase
-    .from("orders")
-    .insert({
-      user_id: user.id,
-      preset_id: presetId,
-      status: "pending" as const,
-      amount_mnt: amountMnt,
-      options_snapshot: { ratio, background, intensity, isPrivate },
-    })
-    .select()
-    .single();
-
-  const order = orderRes.data as OrderRow | null;
-  const orderErr = orderRes.error;
-  if (orderErr || !order)
-    throw new Error(orderErr?.message ?? "Захиалга үүсгэхэд алдаа гарлаа.");
-
-  // Upload source images to private storage bucket; collect storage paths
-  const uploadPaths = await Promise.all(
-    files.map((file, idx) => uploadFile(file, user.id, order.id, idx)),
-  );
-
-  // Create generation record (queued). This path takes no payment, so no
-  // sharing discount is consumed — discount_mnt stays 0 and un-share is free.
-  const genRes = await supabase
-    .from("generations")
-    .insert({
-      order_id: order.id,
-      user_id: user.id,
-      status: "queued" as const,
-      progress: 0,
-      queue_position: 1,
-      full_price_mnt: amountMnt,
-      discount_mnt: 0,
-      paid_price_mnt: amountMnt,
-      shared_to_feed: !isPrivate,
-    })
-    .select()
-    .single();
-
-  const generation = genRes.data as GenerationRow | null;
-  const genErr = genRes.error;
-  if (genErr || !generation)
-    throw new Error(
-      genErr?.message ?? "Боловсруулалт эхлүүлэхэд алдаа гарлаа.",
-    );
-
-  // Kick off generation after the response is sent to the client.
-  // The client immediately starts polling /api/generation/{id} for status.
-  after(() =>
-    runGeneration({
-      generationId: generation.id,
-      orderId: order.id,
-      userId: user.id,
-      uploadPaths,
-      internalPrompt,
-      model,
-      options: { ratio, background, intensity, isPrivate },
-    }),
-  );
-
-  return { generationId: generation.id, orderId: order.id };
-}
 
 export interface RunGenerationParams {
   generationId: string;
@@ -135,9 +31,10 @@ export interface RunGenerationParams {
   options: {
     ratio: string;
     background: string | null;
-    intensity: number | null;
     isPrivate?: boolean;
   };
+  /** Retry counter — keys the refund per attempt (see refundForGeneration). */
+  attempt?: number;
 }
 
 export async function runGeneration({
@@ -148,6 +45,7 @@ export async function runGeneration({
   internalPrompt,
   model,
   options,
+  attempt = 0,
 }: RunGenerationParams): Promise<void> {
   const admin = createAdminClient();
 
@@ -268,8 +166,8 @@ export async function runGeneration({
     // API). Idempotent per generation; a no-op when the order had no successful
     // payment (e.g. the submitOrder/no-pay path).
     try {
-      await refundForGeneration({ userId, orderId, generationId });
-      log("generation.refunded");
+      await refundForGeneration({ userId, orderId, generationId, attempt });
+      log("generation.refunded", { attempt });
     } catch (refundErr) {
       log("generation.refund_failed", {
         error:
@@ -277,6 +175,118 @@ export async function runGeneration({
       });
     }
   }
+}
+
+interface RetrySnapshot {
+  ratio: string;
+  background: string | null;
+  isPrivate?: boolean;
+  uploadPaths?: string[];
+}
+
+// Admin re-run of a failed generation. Reuses the original order's uploads and
+// option snapshot, and keeps the money invariant intact: the failed run already
+// refunded the user, so we reverse that refund before re-running (blocking the
+// retry if the user already spent it). Idempotency keys are attempt-scoped, so a
+// retry that fails again refunds afresh.
+export async function retryGeneration(generationId: string): Promise<void> {
+  await assertCapability("orders");
+  const admin = createAdminClient();
+
+  const { data: genRow } = await admin
+    .from("generations")
+    .select("id, order_id, user_id, status, attempt")
+    .eq("id", generationId)
+    .single();
+  const gen = genRow as Pick<
+    GenerationRow,
+    "id" | "order_id" | "user_id" | "status" | "attempt"
+  > | null;
+  if (!gen) throw new Error("Үүсгэлт олдсонгүй.");
+  if (gen.status !== "failed") {
+    throw new Error("Зөвхөн амжилтгүй болсон үүсгэлтийг дахин оролдоно.");
+  }
+
+  const { data: orderRow } = await admin
+    .from("orders")
+    .select("id, preset_id, options_snapshot")
+    .eq("id", gen.order_id)
+    .single();
+  const order = orderRow as Pick<
+    OrderRow,
+    "id" | "preset_id" | "options_snapshot"
+  > | null;
+  if (!order?.preset_id) throw new Error("Захиалга олдсонгүй эсвэл пресетгүй.");
+
+  const snapshot = (order.options_snapshot ?? {}) as unknown as RetrySnapshot;
+  const uploadPaths = snapshot.uploadPaths ?? [];
+  if (uploadPaths.length === 0) {
+    throw new Error("Оруулсан зургийн зам алга (хуучин захиалга). Дахин оролдох боломжгүй.");
+  }
+
+  const failedAttempt = gen.attempt;
+  const nextAttempt = failedAttempt + 1;
+
+  // Resolve model/prompt up front (read-only) so a misconfigured preset fails
+  // before any money or state is touched.
+  const { prompt: internalPrompt, model } = await getPresetModelConfig(order.preset_id);
+
+  // Reverse the failed run's refund so a successful retry stays paid. If the
+  // user already spent it, block — don't hand out a free result.
+  const recharge = await rechargeForRetry({
+    userId: gen.user_id,
+    orderId: order.id,
+    generationId: gen.id,
+    attempt: failedAttempt,
+  });
+  if (!recharge.ok) {
+    throw new Error(
+      "Хэрэглэгч буцаалтаа зарцуулсан тул дахин оролдох боломжгүй (хэтэвчийн үлдэгдэл хүрэлцэхгүй).",
+    );
+  }
+
+  // Atomically claim the failed→queued transition so a concurrent retry can't
+  // double-run the same generation (recharge above is idempotent per attempt).
+  const { data: claimed } = await admin
+    .from("generations")
+    .update({
+      status: "queued",
+      progress: 0,
+      error: null,
+      result_urls: null,
+      queue_position: 1,
+      attempt: nextAttempt,
+    } as GenUpdate)
+    .eq("id", gen.id)
+    .eq("status", "failed")
+    .select("id");
+  if (!claimed?.length) {
+    throw new Error("Энэ үүсгэлтийг аль хэдийн дахин эхлүүлсэн байна.");
+  }
+
+  await admin
+    .from("orders")
+    .update({ status: "paid" } as OrderUpdate)
+    .eq("id", order.id);
+
+  after(() =>
+    runGeneration({
+      generationId: gen.id,
+      orderId: order.id,
+      userId: gen.user_id,
+      uploadPaths,
+      internalPrompt,
+      model,
+      options: {
+        ratio: snapshot.ratio,
+        background: snapshot.background,
+        isPrivate: snapshot.isPrivate,
+      },
+      attempt: nextAttempt,
+    }),
+  );
+
+  revalidatePath("/admin/orders");
 }
 
 export async function saveToGallery(generationId: string): Promise<void> {
