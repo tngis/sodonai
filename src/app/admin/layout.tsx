@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { requireAdmin } from "@/lib/auth-admin";
+import { requireStaff } from "@/lib/auth-admin";
 import { AdminNav } from "@/components/admin/admin-nav";
 
 export const metadata: Metadata = {
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  const staff = await requireStaff();
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-10">
@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <ArrowLeft size={14} /> Сайт руу буцах
         </Link>
       </div>
-      <AdminNav />
+      <AdminNav role={staff.role} />
       <div className="mt-6">{children}</div>
     </div>
   );

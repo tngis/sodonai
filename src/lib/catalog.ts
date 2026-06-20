@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 
 export interface PresetOptions {
   backgroundPresets?: string[];
-  styleIntensityDefault?: number;
   /** "Юу гарах вэ?" — bullet points describing the result, shown on the detail page. */
   benefits?: string[];
   /** "Шаардлагатай зураг" — guidance bullets about the input photos. */

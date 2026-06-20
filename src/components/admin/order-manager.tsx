@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 import {
   Loader2, Package, Sparkles, Search, SlidersHorizontal,
-  ChevronLeft, ChevronRight, User, Phone, Mail, RotateCcw,
+  ChevronLeft, ChevronRight, User, Phone, Mail, RotateCcw, History,
 } from "lucide-react";
 import { updatePrintFulfillment } from "@/app/actions/admin";
+import { retryGeneration } from "@/app/actions/generation";
 import { findFrame, findSize, FRAMES, SIZES } from "@/lib/print-catalog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +45,20 @@ const ORDER_STATUS_LABELS: Record<string, string> = {
   failed: "Амжилтгүй",
 };
 
-const PAGE_SIZE = 15;
+const STATUS_OPTIONS = [
+  { value: "all", label: "Бүгд" },
+  ...Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+];
+
+const SEARCH_DEBOUNCE_MS = 350;
+
+export interface PrintEvent {
+  field: "production" | "delivery" | "note";
+  from: string | null;
+  to: string | null;
+  actor: string | null;
+  at: string;
+}
 
 export interface AdminPrintDetail {
   id: string;
@@ -55,6 +71,13 @@ export interface AdminPrintDetail {
   delivery_status: PrintDeliveryStatus;
   admin_note: string | null;
   thumbUrl: string;
+  events: PrintEvent[];
+}
+
+export interface AdminGenerationDetail {
+  id: string;
+  status: "queued" | "processing" | "done" | "failed";
+  error: string | null;
 }
 
 export interface AdminOrderItem {
@@ -68,78 +91,227 @@ export interface AdminOrderItem {
   customerPhone: string | null;
   customerEmail: string | null;
   print: AdminPrintDetail | null;
+  generation: AdminGenerationDetail | null;
 }
 
-export function OrderManager({ orders }: { orders: AdminOrderItem[] }) {
-  const [tab, setTab] = useState<"print" | "gen">("print");
-  const printOrders = useMemo(() => orders.filter((o) => o.kind === "print"), [orders]);
-  const genOrders = useMemo(() => orders.filter((o) => o.kind === "generation"), [orders]);
+// Current filter state, mirrored to the URL. "all"/"" mean "no filter".
+export interface OrderFilters {
+  q: string;
+  status: string;
+  production: string;
+  delivery: string;
+  frame: string;
+  size: string;
+  preset: string;
+  from: string;
+  to: string;
+}
+
+interface OrderManagerProps {
+  tab: "print" | "gen";
+  orders: AdminOrderItem[];
+  total: number;
+  page: number; // 1-based
+  pageCount: number;
+  printCount: number;
+  genCount: number;
+  filters: OrderFilters;
+  presetOptions: string[];
+}
+
+export function OrderManager({
+  tab, orders, total, page, pageCount, printCount, genCount, filters, presetOptions,
+}: OrderManagerProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // isPending stays true while the server fetches the new page, so we can show a
+  // loader over the list instead of a frozen UI during the navigation.
+  const [isPending, startTransition] = useTransition();
+
+  // Mirror filter/search/page state to the URL; the server re-renders with the
+  // matching page of data. Values equal to a default ("all"/empty) are dropped.
+  const pushParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null || v === "" || v === "all") next.delete(k);
+        else next.set(k, v);
+      }
+      const qs = next.toString();
+      startTransition(() => {
+        router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      });
+    },
+    [router, pathname, searchParams],
+  );
+
+  const setFilter = (key: keyof OrderFilters, value: string) =>
+    pushParams({ [key]: value, page: null });
+
+  const goToPage = (p: number) => pushParams({ page: p > 1 ? String(p) : null });
+
+  // Debounced search input → URL (keeps focus across the soft navigation since
+  // this component stays mounted).
+  const [queryInput, setQueryInput] = useState(filters.q);
+  useEffect(() => {
+    const h = setTimeout(() => {
+      if (queryInput.trim() !== filters.q) pushParams({ q: queryInput.trim() || null, page: null });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryInput]);
+
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  // Optimistic tab so the segmented pill moves instantly on click, before the
+  // server navigation resolves; re-syncs once the server confirms the new tab.
+  const [optimisticTab, setOptimisticTab] = useState(tab);
+  useEffect(() => { setOptimisticTab(tab); }, [tab]);
+
+  const resetFilters = () => {
+    setQueryInput("");
+    pushParams({
+      q: null, status: null, production: null, delivery: null,
+      frame: null, size: null, preset: null, from: null, to: null, page: null,
+    });
+  };
+
+  const isPrint = tab === "print";
+
+  let activeCount = 0;
+  if (filters.status !== "all") activeCount++;
+  if (filters.from) activeCount++;
+  if (filters.to) activeCount++;
+  if (isPrint) {
+    if (filters.production !== "all") activeCount++;
+    if (filters.delivery !== "all") activeCount++;
+    if (filters.frame !== "all") activeCount++;
+    if (filters.size !== "all") activeCount++;
+  } else if (filters.preset !== "all") {
+    activeCount++;
+  }
+
+  const presetSelectOptions = [
+    { value: "all", label: "Бүгд" },
+    ...presetOptions.map((n) => ({ value: n, label: n })),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
       <SegmentedTabs
         tabs={[
-          { key: "print", label: `Хэвлэлийн захиалга (${printOrders.length})`, icon: <Package size={15} /> },
-          { key: "gen", label: `AI үүсгэлт (${genOrders.length})`, icon: <Sparkles size={15} /> },
+          { key: "print", label: `Хэвлэлийн захиалга (${printCount})`, icon: <Package size={15} /> },
+          { key: "gen", label: `AI үүсгэлт (${genCount})`, icon: <Sparkles size={15} /> },
         ]}
-        value={tab}
-        onChange={setTab}
+        value={optimisticTab}
+        onChange={(key) => {
+          const next = key === "gen" ? "gen" : "print";
+          setOptimisticTab(next);
+          pushParams({ tab: next === "gen" ? "gen" : null, page: null });
+        }}
         layoutId="orders-tab"
       />
 
-      {tab === "print" ? <PrintOrdersView orders={printOrders} /> : <GenOrdersView orders={genOrders} />}
+      <div className="flex flex-col gap-3">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              placeholder={isPrint ? "Захиалагч, утас, хаяг, ID-аар хайх…" : "Захиалагч, утас, имэйл, пресет, ID-аар хайх…"}
+              className="pl-8"
+            />
+          </div>
+          <Button variant="outline" onClick={() => setFilterOpen(true)} className="relative shrink-0 gap-1.5 rounded-lg">
+            <SlidersHorizontal size={15} /> Шүүлтүүр
+            {activeCount > 0 && (
+              <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground">
+                {activeCount}
+              </span>
+            )}
+          </Button>
+        </div>
+
+        {/* List + pagination, dimmed with a spinner overlay while navigating. */}
+        <div className="relative min-h-40" aria-busy={isPending}>
+          {isPending && (
+            <div className="absolute inset-0 z-10 flex items-start justify-center pt-12">
+              <Loader2 className="animate-spin text-muted-foreground" size={24} />
+            </div>
+          )}
+          <div className={cn("transition-opacity", isPending && "pointer-events-none opacity-40")}>
+            {orders.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">Захиалга олдсонгүй.</p>
+            ) : isPrint ? (
+              <div className="flex flex-col gap-3">
+                {orders.map((o) => <PrintOrderCard key={o.id} order={o} />)}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {orders.map((o) => <GenOrderCard key={o.id} order={o} />)}
+              </div>
+            )}
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between pt-3">
+              <span className="text-xs text-muted-foreground">Нийт {total}</span>
+              {pageCount > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled={page <= 1} onClick={() => goToPage(page - 1)} aria-label="Өмнөх">
+                    <ChevronLeft size={15} />
+                  </Button>
+                  <span className="text-sm font-medium tabular-nums">{page} / {pageCount}</span>
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled={page >= pageCount} onClick={() => goToPage(page + 1)} aria-label="Дараах">
+                    <ChevronRight size={15} />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isPrint ? "Хэвлэлийн захиалга шүүх" : "AI үүсгэлтийн захиалга шүүх"}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FilterSelect label="Төлбөрийн төлөв" value={filters.status} onChange={(v) => setFilter("status", v)} options={STATUS_OPTIONS} />
+            {isPrint ? (
+              <>
+                <FilterSelect label="Үйлдвэрлэл" value={filters.production} onChange={(v) => setFilter("production", v)}
+                  options={[{ value: "all", label: "Бүгд" }, ...Object.entries(PRODUCTION_LABELS).map(([value, label]) => ({ value, label }))]} />
+                <FilterSelect label="Хүргэлт" value={filters.delivery} onChange={(v) => setFilter("delivery", v)}
+                  options={[{ value: "all", label: "Бүгд" }, ...Object.entries(DELIVERY_LABELS).map(([value, label]) => ({ value, label }))]} />
+                <FilterSelect label="Жааз" value={filters.frame} onChange={(v) => setFilter("frame", v)}
+                  options={[{ value: "all", label: "Бүгд" }, ...FRAMES.map((f) => ({ value: f.id, label: f.name_mn }))]} />
+                <FilterSelect label="Хэмжээ" value={filters.size} onChange={(v) => setFilter("size", v)}
+                  options={[{ value: "all", label: "Бүгд" }, ...SIZES.map((s) => ({ value: s.id, label: s.label }))]} />
+              </>
+            ) : (
+              <FilterSelect label="Пресет" value={filters.preset} onChange={(v) => setFilter("preset", v)} options={presetSelectOptions} />
+            )}
+            <div className="sm:col-span-2">
+              <DateRange from={filters.from} to={filters.to} onFrom={(v) => setFilter("from", v)} onTo={(v) => setFilter("to", v)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-full gap-1.5" onClick={resetFilters}>
+              <RotateCcw size={14} /> Цэвэрлэх
+            </Button>
+            <Button className="rounded-full font-bold" onClick={() => setFilterOpen(false)}>Хаах</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 // ─── Shared UI bits ──────────────────────────────────────────
-function Toolbar({
-  query, onQuery, onOpenFilter, activeCount, placeholder,
-}: {
-  query: string; onQuery: (v: string) => void; onOpenFilter: () => void;
-  activeCount: number; placeholder: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="relative flex-1">
-        <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input value={query} onChange={(e) => onQuery(e.target.value)} placeholder={placeholder} className="pl-8" />
-      </div>
-      <Button variant="outline" onClick={onOpenFilter} className="relative shrink-0 gap-1.5 rounded-lg">
-        <SlidersHorizontal size={15} /> Шүүлтүүр
-        {activeCount > 0 && (
-          <span className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground">
-            {activeCount}
-          </span>
-        )}
-      </Button>
-    </div>
-  );
-}
-
-function Pagination({
-  page, pageCount, total, onPage,
-}: {
-  page: number; pageCount: number; total: number; onPage: (p: number) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between pt-1">
-      <span className="text-xs text-muted-foreground">Нийт {total}</span>
-      {pageCount > 1 && (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled={page === 0} onClick={() => onPage(page - 1)} aria-label="Өмнөх">
-            <ChevronLeft size={15} />
-          </Button>
-          <span className="text-sm font-medium tabular-nums">{page + 1} / {pageCount}</span>
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" disabled={page >= pageCount - 1} onClick={() => onPage(page + 1)} aria-label="Дараах">
-            <ChevronRight size={15} />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function FilterSelect({
   label, value, onChange, options,
 }: {
@@ -179,14 +351,8 @@ function DateRange({
   );
 }
 
-function countActive<T extends object>(filters: T, empty: T): number {
-  return (Object.keys(filters) as (keyof T)[]).filter((k) => filters[k] !== empty[k]).length;
-}
-
 // Deterministic date formatting — a fixed timeZone + universally-supported
 // locale (en-GB) so the server and client render the exact same string.
-// Using toLocaleString("mn-MN") breaks hydration: the browser often lacks
-// mn-MN locale data and falls back to a different format than the server.
 function formatDateTime(iso: string): string {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Ulaanbaatar",
@@ -197,191 +363,27 @@ function formatDateTime(iso: string): string {
   return `${get("year")}.${get("month")}.${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
-function inDateRange(created: string, from: string, to: string): boolean {
-  const t = new Date(created).getTime();
-  if (from && t < new Date(from + "T00:00:00").getTime()) return false;
-  if (to && t > new Date(to + "T23:59:59").getTime()) return false;
-  return true;
-}
-
-const STATUS_OPTIONS = [
-  { value: "all", label: "Бүгд" },
-  ...Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => ({ value, label })),
-];
-
-// ─── Print orders tab ────────────────────────────────────────
-interface PrintFilters {
-  status: string; production: string; delivery: string; frame: string; size: string; from: string; to: string;
-}
-const EMPTY_PRINT: PrintFilters = { status: "all", production: "all", delivery: "all", frame: "all", size: "all", from: "", to: "" };
-
-function PrintOrdersView({ orders }: { orders: AdminOrderItem[] }) {
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<PrintFilters>(EMPTY_PRINT);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [page, setPage] = useState(0);
-
-  const resetPage = () => setPage(0);
-  const onQuery = (v: string) => { setQuery(v); resetPage(); };
-  const patch = (p: Partial<PrintFilters>) => { setFilters((f) => ({ ...f, ...p })); resetPage(); };
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return orders.filter((o) => {
-      const p = o.print!;
-      if (filters.status !== "all" && o.status !== filters.status) return false;
-      if (filters.production !== "all" && p.production_status !== filters.production) return false;
-      if (filters.delivery !== "all" && p.delivery_status !== filters.delivery) return false;
-      if (filters.frame !== "all" && p.frame_id !== filters.frame) return false;
-      if (filters.size !== "all" && p.size_id !== filters.size) return false;
-      if (!inDateRange(o.created_at, filters.from, filters.to)) return false;
-      if (q) {
-        const hay = [o.id, p.ship_recipient, p.ship_phone, p.ship_address, o.customerName, o.customerPhone, o.customerEmail]
-          .filter(Boolean).join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [orders, query, filters]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageItems = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const activeCount = countActive(filters, EMPTY_PRINT);
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Toolbar
-        query={query} onQuery={onQuery} onOpenFilter={() => setFilterOpen(true)}
-        activeCount={activeCount}
-        placeholder="Захиалагч, утас, хаяг, ID-аар хайх…"
-      />
-
-      {pageItems.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Захиалга олдсонгүй.</p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {pageItems.map((o) => <PrintOrderCard key={o.id} order={o} />)}
-        </div>
-      )}
-
-      <Pagination page={safePage} pageCount={pageCount} total={filtered.length} onPage={setPage} />
-
-      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Хэвлэлийн захиалга шүүх</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FilterSelect label="Төлбөрийн төлөв" value={filters.status} onChange={(v) => patch({ status: v })} options={STATUS_OPTIONS} />
-            <FilterSelect label="Үйлдвэрлэл" value={filters.production} onChange={(v) => patch({ production: v })}
-              options={[{ value: "all", label: "Бүгд" }, ...Object.entries(PRODUCTION_LABELS).map(([value, label]) => ({ value, label }))]} />
-            <FilterSelect label="Хүргэлт" value={filters.delivery} onChange={(v) => patch({ delivery: v })}
-              options={[{ value: "all", label: "Бүгд" }, ...Object.entries(DELIVERY_LABELS).map(([value, label]) => ({ value, label }))]} />
-            <FilterSelect label="Жааз" value={filters.frame} onChange={(v) => patch({ frame: v })}
-              options={[{ value: "all", label: "Бүгд" }, ...FRAMES.map((f) => ({ value: f.id, label: f.name_mn }))]} />
-            <FilterSelect label="Хэмжээ" value={filters.size} onChange={(v) => patch({ size: v })}
-              options={[{ value: "all", label: "Бүгд" }, ...SIZES.map((s) => ({ value: s.id, label: s.label }))]} />
-            <div className="sm:col-span-2">
-              <DateRange from={filters.from} to={filters.to} onFrom={(v) => patch({ from: v })} onTo={(v) => patch({ to: v })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-full gap-1.5" onClick={() => { setFilters(EMPTY_PRINT); resetPage(); }}>
-              <RotateCcw size={14} /> Цэвэрлэх
-            </Button>
-            <Button className="rounded-full font-bold" onClick={() => setFilterOpen(false)}>Хаах</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ─── AI generation orders tab ────────────────────────────────
-interface GenFilters {
-  status: string; preset: string; from: string; to: string;
-}
-const EMPTY_GEN: GenFilters = { status: "all", preset: "all", from: "", to: "" };
-
-function GenOrdersView({ orders }: { orders: AdminOrderItem[] }) {
-  const [query, setQuery] = useState("");
-  const [filters, setFilters] = useState<GenFilters>(EMPTY_GEN);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [page, setPage] = useState(0);
-
-  const resetPage = () => setPage(0);
-  const onQuery = (v: string) => { setQuery(v); resetPage(); };
-  const patch = (p: Partial<GenFilters>) => { setFilters((f) => ({ ...f, ...p })); resetPage(); };
-
-  const presetOptions = useMemo(() => {
-    const names = new Map<string, string>();
-    orders.forEach((o) => { if (o.presetName) names.set(o.presetName, o.presetName); });
-    return [{ value: "all", label: "Бүгд" }, ...[...names.keys()].sort().map((n) => ({ value: n, label: n }))];
-  }, [orders]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return orders.filter((o) => {
-      if (filters.status !== "all" && o.status !== filters.status) return false;
-      if (filters.preset !== "all" && o.presetName !== filters.preset) return false;
-      if (!inDateRange(o.created_at, filters.from, filters.to)) return false;
-      if (q) {
-        const hay = [o.id, o.presetName, o.customerName, o.customerPhone, o.customerEmail].filter(Boolean).join(" ").toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [orders, query, filters]);
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pageItems = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const activeCount = countActive(filters, EMPTY_GEN);
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Toolbar
-        query={query} onQuery={onQuery} onOpenFilter={() => setFilterOpen(true)}
-        activeCount={activeCount}
-        placeholder="Захиалагч, утас, имэйл, пресет, ID-аар хайх…"
-      />
-
-      {pageItems.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">Захиалга олдсонгүй.</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {pageItems.map((o) => <GenOrderCard key={o.id} order={o} />)}
-        </div>
-      )}
-
-      <Pagination page={safePage} pageCount={pageCount} total={filtered.length} onPage={setPage} />
-
-      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>AI үүсгэлтийн захиалга шүүх</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FilterSelect label="Төлбөрийн төлөв" value={filters.status} onChange={(v) => patch({ status: v })} options={STATUS_OPTIONS} />
-            <FilterSelect label="Пресет" value={filters.preset} onChange={(v) => patch({ preset: v })} options={presetOptions} />
-            <div className="sm:col-span-2">
-              <DateRange from={filters.from} to={filters.to} onFrom={(v) => patch({ from: v })} onTo={(v) => patch({ to: v })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-full gap-1.5" onClick={() => { setFilters(EMPTY_GEN); resetPage(); }}>
-              <RotateCcw size={14} /> Цэвэрлэх
-            </Button>
-            <Button className="rounded-full font-bold" onClick={() => setFilterOpen(false)}>Хаах</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
+// ─── AI generation order card ────────────────────────────────
 function GenOrderCard({ order }: { order: AdminOrderItem }) {
+  const router = useRouter();
+  const [retrying, setRetrying] = useState(false);
+  const gen = order.generation;
+  const failed = gen?.status === "failed";
+
+  const handleRetry = async () => {
+    if (!gen) return;
+    setRetrying(true);
+    try {
+      await retryGeneration(gen.id);
+      toast.success("Дахин эхлүүллээ");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   return (
     <Card>
       <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
@@ -407,16 +409,37 @@ function GenOrderCard({ order }: { order: AdminOrderItem }) {
             )}
             <span>{formatDateTime(order.created_at)}</span>
           </div>
+          {failed && gen?.error && (
+            <p className="mt-1 line-clamp-2 text-xs text-destructive">{gen.error}</p>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <Badge variant="secondary" className="text-xs">{ORDER_STATUS_LABELS[order.status] ?? order.status}</Badge>
           <span className="font-bold text-primary">₮{order.amount_mnt.toLocaleString()}</span>
+          {failed && (
+            <Button onClick={handleRetry} disabled={retrying} size="sm" variant="outline" className="gap-1.5 rounded-full">
+              {retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              Дахин оролдох
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
+// Human-readable line for one audit event (status codes → MN labels).
+function describeEvent(e: PrintEvent): string {
+  if (e.field === "note") {
+    return `Тэмдэглэл: ${e.to ? `"${e.to}"` : "(хоослов)"}`;
+  }
+  const fieldLabel = e.field === "production" ? "Үйлдвэрлэл" : "Хүргэлт";
+  const labels: Record<string, string> = e.field === "production" ? PRODUCTION_LABELS : DELIVERY_LABELS;
+  const val = (v: string | null) => (v ? labels[v] ?? v : "—");
+  return `${fieldLabel}: ${val(e.from)} → ${val(e.to)}`;
+}
+
+// ─── Print order card ────────────────────────────────────────
 function PrintOrderCard({ order }: { order: AdminOrderItem }) {
   const p = order.print!;
   const [prod, setProd] = useState<PrintProductionStatus>(p.production_status);
@@ -428,6 +451,7 @@ function PrintOrderCard({ order }: { order: AdminOrderItem }) {
     note: p.admin_note ?? "",
   });
   const [saving, setSaving] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const dirty =
     prod !== baseline.prod || delv !== baseline.delv || (note.trim() || null) !== (baseline.note.trim() || null);
@@ -480,7 +504,18 @@ function PrintOrderCard({ order }: { order: AdminOrderItem }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">Үйлдвэрлэл</p>
-              <Select items={PRODUCTION_LABELS} value={prod} onValueChange={(v) => typeof v === "string" && setProd(v as PrintProductionStatus)}>
+              <Select
+                items={PRODUCTION_LABELS}
+                value={prod}
+                onValueChange={(v) => {
+                  if (typeof v !== "string") return;
+                  const next = v as PrintProductionStatus;
+                  setProd(next);
+                  // Delivery can't be ahead of production — pull it back to pending
+                  // if production drops below "ready".
+                  if (next !== "ready" && delv !== "pending") setDelv("pending");
+                }}
+              >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(PRODUCTION_LABELS) as PrintProductionStatus[]).map((k) => (
@@ -491,14 +526,23 @@ function PrintOrderCard({ order }: { order: AdminOrderItem }) {
             </div>
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">Хүргэлт</p>
-              <Select items={DELIVERY_LABELS} value={delv} onValueChange={(v) => typeof v === "string" && setDelv(v as PrintDeliveryStatus)}>
+              <Select
+                items={DELIVERY_LABELS}
+                value={delv}
+                onValueChange={(v) => typeof v === "string" && setDelv(v as PrintDeliveryStatus)}
+              >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(DELIVERY_LABELS) as PrintDeliveryStatus[]).map((k) => (
-                    <SelectItem key={k} value={k}>{DELIVERY_LABELS[k]}</SelectItem>
+                    <SelectItem key={k} value={k} disabled={k !== "pending" && prod !== "ready"}>
+                      {DELIVERY_LABELS[k]}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {prod !== "ready" && (
+                <p className="mt-1 text-xs text-muted-foreground">Үйлдвэрлэл бэлэн болсны дараа хүргэлт идэвхжинэ.</p>
+              )}
             </div>
           </div>
 
@@ -515,6 +559,29 @@ function PrintOrderCard({ order }: { order: AdminOrderItem }) {
               {saving ? <Loader2 size={14} className="mr-2 animate-spin" /> : null} Хадгалах
             </Button>
           </div>
+
+          {p.events.length > 0 && (
+            <div className="mt-3 border-t border-border/60 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowHistory((s) => !s)}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <History size={12} /> Түүх ({p.events.length})
+              </button>
+              {showHistory && (
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {p.events.map((e, i) => (
+                    <li key={i} className="flex flex-col gap-0.5 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2">
+                      <span className="text-muted-foreground">{formatDateTime(e.at)}</span>
+                      <span>{describeEvent(e)}</span>
+                      {e.actor && <span className="text-muted-foreground">· {e.actor}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

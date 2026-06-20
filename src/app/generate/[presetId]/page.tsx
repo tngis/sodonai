@@ -41,7 +41,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CategoryGlyph } from "@/components/category-icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { QPayDeepLink } from "@/lib/qpay";
@@ -140,7 +139,6 @@ export default function GeneratePage({
   const [uploads, setUploads] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [selectedBg, setSelectedBg] = useState("");
-  const [intensity, setIntensity] = useState(50);
   // "Show to others" — off by default (private). This is the ONLY place sharing
   // can be opted into (it earns the preset's discount); there's no re-share
   // later. Sent to the server as the inverse `isPrivate`.
@@ -166,7 +164,6 @@ export default function GeneratePage({
       setPreset(result.preset);
       setCategory(result.category);
       setSelectedBg(result.preset.options?.backgroundPresets?.[0] ?? "");
-      setIntensity(result.preset.options?.styleIntensityDefault ?? 50);
       setRatio(result.preset.output_ratio);
       setCatalogLoading(false);
     });
@@ -338,7 +335,6 @@ export default function GeneratePage({
     );
     formData.set("ratio", ratio);
     formData.set("background", selectedBg);
-    formData.set("intensity", String(intensity));
     formData.set("isPrivate", String(!share));
     finalFiles.forEach((file, i) => formData.set(`file_${i}`, file));
     return formData;
@@ -697,29 +693,6 @@ export default function GeneratePage({
                 </div>
               </div>
             </div>
-
-            {/* Style intensity — controlled slider */}
-            {preset.options?.styleIntensityDefault !== undefined && (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-semibold">{t("styleIntensity")}</Label>
-                  <span className="text-sm font-bold text-primary">
-                    {intensity}%
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={100}
-                  step={10}
-                  value={[intensity]}
-                  onValueChange={(v) =>
-                    setIntensity(
-                      Array.isArray(v) ? (v as number[])[0] : (v as number),
-                    )
-                  }
-                />
-              </div>
-            )}
 
             {/* Share-to-showcase toggle — off by default (private). When the
                 preset offers a sharing discount, show the price impact. */}

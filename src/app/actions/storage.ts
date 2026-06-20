@@ -29,6 +29,42 @@ export async function getOutputUrls(paths: string[]): Promise<string[]> {
   return getSignedUrls(OUTPUTS_BUCKET, paths, undefined, { stable: true });
 }
 
+// Presign thumbnails for already-known output storage paths (e.g. the image a
+// print order is framing). Authorizes by owner prefix like getOutputUrls, then
+// prefers each asset's thumb_path over the full image so cards load fast.
+// Returns a { [storagePath]: signedUrl } map (missing/failed paths are omitted).
+export async function getOutputThumbUrls(
+  paths: string[]
+): Promise<Record<string, string>> {
+  if (paths.length === 0) return {};
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Нэвтэрч орно уу.");
+
+  for (const path of paths) {
+    if (path.split("/")[0] !== user.id) throw new Error("Хандах эрхгүй зам.");
+  }
+
+  const unique = [...new Set(paths)];
+  const { data } = await supabase
+    .from("assets")
+    .select("storage_path, thumb_path")
+    .in("storage_path", unique);
+
+  const thumbByStorage = new Map(
+    (data ?? []).map((a) => [a.storage_path, a.thumb_path ?? a.storage_path]),
+  );
+  const signPaths = unique.map((p) => thumbByStorage.get(p) ?? p);
+  const signed = await getSignedUrls(OUTPUTS_BUCKET, signPaths, undefined, { stable: true });
+
+  const result: Record<string, string> = {};
+  unique.forEach((p, i) => {
+    if (signed[i]) result[p] = signed[i];
+  });
+  return result;
+}
+
 // Fetch and presign thumbnail URLs for a list of generation IDs.
 // Queries the assets table for the first asset per generation, preferring
 // thumb_path over storage_path, and returns a { [genId]: signedUrl } map.

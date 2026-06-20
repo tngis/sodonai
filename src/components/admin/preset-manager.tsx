@@ -715,7 +715,7 @@ export function PresetManager({
 
               <TextareaField
                 label="Options (JSON, заавал биш)"
-                hint='Ж: {"styleIntensityDefault":30}'
+                hint='Ж: {"backgroundPresets":["Studio","Outdoor"]}'
                 value={editing.optionsText}
                 onChange={(v) => patch({ optionsText: v })}
                 rows={3}

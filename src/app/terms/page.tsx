@@ -44,7 +44,7 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-2 text-base font-bold">4. Төлбөр ба буцаалт</h2>
             <p className="text-muted-foreground">
-              Бүх төлбөр QPay болон банкны апп-аар хийгдэнэ. <strong>AI үүсгэлт эхэлсний дараа төлбөр буцаах
+              Төлбөрийг хэтэвчээрээ (урьдчилан цэнэглэсэн үлдэгдэл) эсвэл QPay (QR код, банкны апп)-аар хийнэ. <strong>AI үүсгэлт эхэлсний дараа төлбөр буцаах
               боломжгүй.</strong> Техникийн алдаанаас үүссэн тохиолдолд холбогдоно уу.
             </p>
           </section>

@@ -5,12 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Check, Plus, Loader2, CheckCircle2, Frame as FrameIcon, MapPin, ImageOff } from "lucide-react";
+import { ArrowLeft, Check, Plus, Loader2, CheckCircle2, Frame as FrameIcon, MapPin, ImageOff, Wallet, QrCode } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { getOutputUrls } from "@/app/actions/storage";
 import { listAddresses } from "@/app/actions/addresses";
-import { createPrintIntent } from "@/app/actions/print";
+import { createPrintIntent, payPrintWithWallet } from "@/app/actions/print";
+import { getWalletBalance } from "@/app/actions/wallet";
+import { formatMnt } from "@/lib/wallet";
 import { formatAddress } from "@/lib/address";
 import { FRAMES, SIZES, findFrame, findSize, priceFor, DEFAULT_FRAME_ID, DEFAULT_SIZE_ID } from "@/lib/print-catalog";
 import { banks } from "@/lib/banks";
@@ -33,11 +35,18 @@ interface GalleryItem {
 
 type PaymentPhase =
   | { kind: "idle" }
+  | { kind: "choosing" }
   | { kind: "creating" }
   | { kind: "awaiting"; paymentId: string; orderId: string; qrImage: string; deepLinks: QPayDeepLink[] }
   | { kind: "confirmed" };
 
 const POLL_MS = 2500;
+
+// Tune these to adjust the size-responsive live preview.
+const PREVIEW_CATALOG_MAX_CM = 60;
+const PREVIEW_SCALE_MIN = 0.58;
+const PREVIEW_SCALE_MAX = 1.0;
+const PREVIEW_BASE_REM = 18;
 
 // Parse "2:3" → aspect (w/h); default to 3/4 portrait.
 function ratioToAspect(ratio: string): number {
@@ -61,6 +70,10 @@ function PrintConfigurator() {
   const [sizeId, setSizeId] = useState(DEFAULT_SIZE_ID);
   const [addressId, setAddressId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // Wallet (default) vs QPay. Balance loads with the gallery/addresses.
+  const [method, setMethod] = useState<"wallet" | "qpay">("wallet");
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   const [payment, setPayment] = useState<PaymentPhase>({ kind: "idle" });
 
@@ -109,6 +122,7 @@ function PrintConfigurator() {
       }
 
       await loadAddresses();
+      setWalletBalance(await getWalletBalance().catch(() => 0));
       setLoading(false);
     })();
   }, [presetAsset, presetGen, loadAddresses]);
@@ -133,17 +147,11 @@ function PrintConfigurator() {
     return () => clearInterval(id);
   }, [payment, router]);
 
-  const handleConfirm = async () => {
-    if (!selectedPath) { toast.error(t("printSelectImageFirst")); return; }
-    if (!addressId) { toast.error(t("printSelectAddressFirst")); return; }
+  // QPay: open the QR overlay; the poll effect drives confirmation.
+  const handleQpay = async (assetStoragePath: string, addr: string) => {
     setPayment({ kind: "creating" });
     try {
-      const result = await createPrintIntent({
-        assetStoragePath: selectedPath,
-        frameId,
-        sizeId,
-        addressId,
-      });
+      const result = await createPrintIntent({ assetStoragePath, frameId, sizeId, addressId: addr });
       setPayment({ kind: "awaiting", ...result });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
@@ -151,7 +159,45 @@ function PrintConfigurator() {
     }
   };
 
+  // Wallet: the debit settles synchronously (no QR/polling) — show the confirmed
+  // splash and drop the user into their orders.
+  const handleWallet = async (assetStoragePath: string, addr: string) => {
+    setPayment({ kind: "creating" });
+    try {
+      await payPrintWithWallet({ assetStoragePath, frameId, sizeId, addressId: addr });
+      setPayment({ kind: "confirmed" });
+      setTimeout(() => router.push("/orders"), 1000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
+      setPayment({ kind: "idle" });
+      // Balance may have changed (or the debit raced) — refresh it.
+      getWalletBalance().then(setWalletBalance).catch(() => {});
+    }
+  };
+
+  // The sticky bar button validates the selection, then opens the payment sheet
+  // where the user picks a method (wallet/QPay) and pays.
+  const openPayment = () => {
+    if (!selectedPath) { toast.error(t("printSelectImageFirst")); return; }
+    if (!addressId) { toast.error(t("printSelectAddressFirst")); return; }
+    setPayment({ kind: "choosing" });
+  };
+
+  const payNow = () => {
+    if (!selectedPath || !addressId) return; // guarded by openPayment
+    if (method === "wallet") return handleWallet(selectedPath, addressId);
+    return handleQpay(selectedPath, addressId);
+  };
+
   const previewAspect = ratioToAspect(size.ratio);
+  const longEdge = Math.max(size.w_cm, size.h_cm);
+  const previewScale =
+    PREVIEW_SCALE_MIN +
+    (PREVIEW_SCALE_MAX - PREVIEW_SCALE_MIN) * (longEdge / PREVIEW_CATALOG_MAX_CM);
+  // Definite height (the portrait long edge) — aspect-ratio derives the width.
+  // A *max*-height alone collapses the box, since its only content is an absolute <Image fill>.
+  const previewHeight = `${(PREVIEW_BASE_REM * previewScale).toFixed(2)}rem`;
+  const insufficient = walletBalance !== null && walletBalance < price;
 
   if (loading) {
     return (
@@ -190,7 +236,7 @@ function PrintConfigurator() {
   }
 
   return (
-    <div className="px-4 py-6 pb-32 md:px-6 md:py-10">
+    <div className="px-4 py-6 pb-[calc(11rem+env(safe-area-inset-bottom))] md:px-6 md:py-10 md:pb-32">
       <div className="mx-auto max-w-3xl">
         <button onClick={() => router.back()} className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft size={14} /> {t("back")}
@@ -204,16 +250,19 @@ function PrintConfigurator() {
         </div>
 
         {/* ── Live preview ── */}
-        <div className="mb-8 flex justify-center rounded-2xl p-6 shadow-(--shadow-recessed)">
+        <div className="mb-8 flex justify-center rounded-2xl border border-border bg-muted/30 p-6">
           <motion.div
             layout
-            className={cn("max-h-72 overflow-hidden rounded-sm shadow-xl transition-all", frame.swatchClass)}
-            style={{ aspectRatio: String(previewAspect), maxWidth: "min(100%, 18rem)" }}
+            className={cn("overflow-hidden rounded-sm shadow-xl transition-all", frame.swatchClass)}
+            style={{ aspectRatio: String(previewAspect), height: previewHeight, maxWidth: "100%" }}
           >
-            <div className="relative h-full w-full overflow-hidden bg-background" style={{ aspectRatio: String(previewAspect) }}>
-              {selected?.url && (
-                <Image src={selected.url} alt="preview" fill className="object-cover" sizes="320px" unoptimized />
-              )}
+            {/* white mat — omitted for "no frame" */}
+            <div className={cn("h-full w-full", frame.id !== "none" && "bg-white p-1.5")}>
+              <div className="relative h-full w-full overflow-hidden bg-background">
+                {selected?.url && (
+                  <Image src={selected.url} alt="preview" fill className="object-cover" sizes="320px" unoptimized />
+                )}
+              </div>
             </div>
           </motion.div>
         </div>
@@ -228,8 +277,8 @@ function PrintConfigurator() {
                 className={cn(
                   "relative h-20 w-20 shrink-0 overflow-hidden rounded-xl transition-all",
                   selectedPath === g.path
-                    ? "ring-2 ring-primary shadow-(--shadow-pressed) glow-brand-sm"
-                    : "shadow-(--shadow-card) hover:ring-2 hover:ring-primary/50"
+                    ? "ring-2 ring-primary"
+                    : "border border-border hover:ring-2 hover:ring-primary/50"
                 )}
               >
                 {g.url && <Image src={g.url} alt="" fill className="object-cover" sizes="80px" unoptimized />}
@@ -245,21 +294,23 @@ function PrintConfigurator() {
 
         {/* ── 2. Frame ── */}
         <Section step={2} title={t("printFrame")}>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
             {FRAMES.map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFrameId(f.id)}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 rounded-xl p-2 transition-all",
+                  "flex h-full flex-col items-center gap-1.5 rounded-xl p-2 transition-all",
                   frameId === f.id
-                    ? "text-primary shadow-(--shadow-pressed) glow-brand-sm"
-                    : "text-muted-foreground shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)"
+                    ? "bg-primary/10 ring-2 ring-primary"
+                    : "border border-border hover:text-primary"
                 )}
               >
-                <span className="h-10 w-10 rounded-md ring-1 ring-foreground/10" style={{ background: f.swatchStyle }} />
-                <span className="text-[11px] font-semibold">{lang === "mn" ? f.name_mn : f.name_en}</span>
-                <span className="text-[10px] text-muted-foreground">
+                <span className="h-10 w-10 shrink-0 rounded-md ring-1 ring-foreground/10" style={{ background: f.swatchStyle }} />
+                <span className="line-clamp-2 min-h-[2.5em] text-center text-[11px] font-semibold leading-tight">
+                  {lang === "mn" ? f.name_mn : f.name_en}
+                </span>
+                <span className="mt-auto text-[10px] text-muted-foreground">
                   {f.surcharge_mnt === 0 ? "+0₮" : `+${(f.surcharge_mnt / 1000).toFixed(0)}мянга`}
                 </span>
               </button>
@@ -277,8 +328,8 @@ function PrintConfigurator() {
                 className={cn(
                   "rounded-xl px-4 py-2 text-left transition-all",
                   sizeId === s.id
-                    ? "bg-primary/10 text-primary shadow-(--shadow-pressed) glow-brand-sm"
-                    : "shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)"
+                    ? "bg-primary/10 text-primary ring-2 ring-primary"
+                    : "border border-border hover:text-primary"
                 )}
               >
                 <p className="text-sm font-bold">{s.label}</p>
@@ -299,10 +350,10 @@ function PrintConfigurator() {
                 key={a.id}
                 onClick={() => setAddressId(a.id)}
                 className={cn(
-                  "flex items-start gap-3 rounded-xl p-3 text-left transition-all",
+                  "flex w-full items-start gap-3 rounded-xl border border-border p-3 text-left transition-all",
                   addressId === a.id
-                    ? "shadow-(--shadow-pressed) glow-brand-sm"
-                    : "shadow-(--shadow-card) hover:text-primary active:shadow-(--shadow-pressed)"
+                    ? "ring-2 ring-primary"
+                    : "hover:text-primary"
                 )}
               >
                 <MapPin size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
@@ -349,26 +400,24 @@ function PrintConfigurator() {
             <p className="text-xl font-black text-primary">₮{price.toLocaleString()}</p>
           </div>
           <Button
-            onClick={handleConfirm}
-            disabled={payment.kind === "creating" || !selectedPath || !addressId}
+            onClick={openPayment}
+            disabled={!selectedPath || !addressId}
             className="rounded-full font-bold bg-primary text-primary-foreground"
             variant="shadow"
             size="lg"
           >
-            {payment.kind === "creating"
-              ? <><Loader2 size={16} className="mr-2 animate-spin" /> Нэхэмжлэл...</>
-              : t("printConfirm")}
+            {t("printConfirm")}
           </Button>
         </div>
       </div>
 
-      {/* ── QPay overlay ── */}
+      {/* ── Payment sheet: method chooser → QPay QR ── */}
       <AnimatePresence>
-        {payment.kind === "awaiting" && (
+        {(payment.kind === "choosing" || payment.kind === "creating" || payment.kind === "awaiting") && (
           <motion.div
             className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setPayment({ kind: "idle" })}
+            onClick={() => { if (payment.kind !== "creating") setPayment({ kind: "idle" }); }}
           >
             <motion.div
               className="chassis-surface relative w-full max-w-md rounded-t-3xl p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-(--shadow-floating) sm:rounded-3xl sm:pb-6"
@@ -376,12 +425,17 @@ function PrintConfigurator() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold">{t("qpayTitle")}</h2>
-                <button onClick={() => setPayment({ kind: "idle" })} className="text-xs text-muted-foreground hover:text-foreground">
-                  {t("cancelBtn")}
-                </button>
+                <h2 className="text-lg font-bold">
+                  {payment.kind === "awaiting" ? t("qpayTitle") : t("paymentMethod")}
+                </h2>
+                {payment.kind !== "creating" && (
+                  <button onClick={() => setPayment({ kind: "idle" })} className="text-xs text-muted-foreground hover:text-foreground">
+                    {t("cancelBtn")}
+                  </button>
+                )}
               </div>
 
+              {/* Price summary — shared by both steps */}
               <Card className="mb-4">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between text-sm">
@@ -394,32 +448,118 @@ function PrintConfigurator() {
                 </CardContent>
               </Card>
 
-              <div className="flex flex-col items-center gap-3 rounded-2xl bg-muted p-6 shadow-(--shadow-recessed)">
-                <p className="text-sm font-semibold text-muted-foreground">{t("qpayDesc")}</p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {/* QR keeps a white quiet-zone so it stays scannable on the dark chassis. */}
-                <img src={payment.qrImage} alt="QPay QR" className="h-44 w-44 rounded-xl bg-white p-2" />
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 size={12} className="animate-spin" /> {t("paymentWaiting")}
-                </div>
-              </div>
+              {payment.kind === "awaiting" ? (
+                /* ── QPay QR ── */
+                <>
+                  <div className="flex flex-col items-center gap-3 rounded-2xl bg-muted p-6 shadow-(--shadow-recessed)">
+                    <p className="text-sm font-semibold text-muted-foreground">{t("qpayDesc")}</p>
+                    {/* QR keeps a white quiet-zone so it stays scannable on the dark chassis. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={payment.qrImage} alt="QPay QR" className="h-44 w-44 rounded-xl bg-white p-2" />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 size={12} className="animate-spin" /> {t("paymentWaiting")}
+                    </div>
+                  </div>
 
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-semibold">{t("bankApps")}</p>
-                <div className="flex flex-wrap gap-2">
-                  {payment.deepLinks.map((dl) => {
-                    const bank = banks.find((b) => b.nameMn === dl.name);
-                    return (
-                      <a key={dl.name} href={dl.link} className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium shadow-(--shadow-card) transition-all hover:text-primary active:shadow-(--shadow-pressed)">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black text-white" style={{ background: bank?.color ?? "#666" }}>
-                          {dl.name.slice(0, 1)}
-                        </span>
-                        <span className="whitespace-nowrap">{dl.name}</span>
-                      </a>
-                    );
-                  })}
-                </div>
-              </div>
+                  <div className="mt-4">
+                    <p className="mb-2 text-sm font-semibold">{t("bankApps")}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {payment.deepLinks.map((dl) => {
+                        const bank = banks.find((b) => b.nameMn === dl.name);
+                        return (
+                          <a key={dl.name} href={dl.link} className="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium shadow-(--shadow-card) transition-all hover:text-primary active:shadow-(--shadow-pressed)">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black text-white" style={{ background: bank?.color ?? "#666" }}>
+                              {dl.name.slice(0, 1)}
+                            </span>
+                            <span className="whitespace-nowrap">{dl.name}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* ── Method chooser (choosing · creating) ── */
+                <>
+                  <div className="flex flex-col gap-2">
+                    {/* Wallet (default) */}
+                    <button
+                      type="button"
+                      onClick={() => setMethod("wallet")}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl p-4 text-left transition-all",
+                        method === "wallet"
+                          ? "bg-primary/10 ring-2 ring-primary"
+                          : "border border-border hover:text-primary"
+                      )}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Wallet size={18} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{t("payWithWallet")}</p>
+                        {walletBalance === null ? (
+                          <p className="text-xs text-muted-foreground">…</p>
+                        ) : insufficient ? (
+                          <p className="text-xs text-destructive">
+                            {t("insufficientBalance")} · {formatMnt(price - walletBalance)} {t("shortBy")}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            {t("walletBalance")}: {formatMnt(walletBalance)}
+                          </p>
+                        )}
+                      </div>
+                      {method === "wallet" && <Check size={18} className="shrink-0 text-primary" />}
+                    </button>
+
+                    {/* QPay */}
+                    <button
+                      type="button"
+                      onClick={() => setMethod("qpay")}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl p-4 text-left transition-all",
+                        method === "qpay"
+                          ? "bg-primary/10 ring-2 ring-primary"
+                          : "border border-border hover:text-primary"
+                      )}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <QrCode size={18} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{t("qpayTitle")}</p>
+                        <p className="text-xs text-muted-foreground">{t("qpayDesc")}</p>
+                      </div>
+                      {method === "qpay" && <Check size={18} className="shrink-0 text-primary" />}
+                    </button>
+                  </div>
+
+                  {method === "wallet" && insufficient ? (
+                    // Wallet can't cover it — nudge to top up instead of paying.
+                    <Button
+                      onClick={() => router.push("/wallet")}
+                      className="mt-4 w-full rounded-full font-bold bg-primary text-primary-foreground"
+                      variant="shadow"
+                      size="lg"
+                    >
+                      <Plus size={16} className="mr-1.5" /> {t("topUp")}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={payNow}
+                      disabled={payment.kind === "creating" || (method === "wallet" && walletBalance === null)}
+                      className="mt-4 w-full rounded-full font-bold bg-primary text-primary-foreground"
+                      variant="shadow"
+                      size="lg"
+                    >
+                      {payment.kind === "creating"
+                        ? <><Loader2 size={16} className="mr-2 animate-spin" /> {t("processing")}</>
+                        : t("printConfirm")}
+                    </Button>
+                  )}
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}

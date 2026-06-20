@@ -9,6 +9,7 @@ import {
   validateImageFile,
   OUTPUTS_BUCKET,
 } from "@/lib/supabase/storage";
+import type { UserRole } from "@/lib/supabase/types";
 
 export interface Profile {
   id: string;
@@ -21,7 +22,8 @@ export interface Profile {
   avatarUrl: string | null;
   /** Master switch: are this user's shared images allowed in the public showcase? */
   publicSharingEnabled: boolean;
-  isAdmin: boolean;
+  /** Staff role; "user" for normal accounts. Gates the admin link/area. */
+  role: UserRole;
 }
 
 async function requireUser() {
@@ -76,7 +78,7 @@ export async function getProfile(): Promise<Profile> {
   const { supabase, user } = await requireUser();
   const { data } = await supabase
     .from("users")
-    .select("name, phone, avatar_url, public_sharing_enabled, is_admin")
+    .select("name, phone, avatar_url, public_sharing_enabled, role")
     .eq("id", user.id)
     .single();
 
@@ -88,7 +90,7 @@ export async function getProfile(): Promise<Profile> {
     avatarPath: data?.avatar_url ?? null,
     avatarUrl: await signAvatar(supabase, data?.avatar_url ?? null, user.id),
     publicSharingEnabled: data?.public_sharing_enabled ?? false,
-    isAdmin: data?.is_admin ?? false,
+    role: data?.role ?? "user",
   };
 }
 

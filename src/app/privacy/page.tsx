@@ -23,7 +23,7 @@ export default function PrivacyPage() {
               <li><strong>Бүртгэлийн мэдээлэл:</strong> имэйл хаяг эсвэл утасны дугаар</li>
               <li><strong>Профайлын мэдээлэл:</strong> нэр (заавал биш)</li>
               <li><strong>Оруулсан зургууд:</strong> AI боловсруулалтын зорилгоор хадгалагдана</li>
-              <li><strong>Гаралтын зургууд:</strong> таны галлерид хадгалагдана</li>
+              <li><strong>Гаралтын зургууд:</strong> таны галерейд хадгалагдана</li>
               <li><strong>Гүйлгээний мэдээлэл:</strong> захиалга, төлбөрийн түүх</li>
               <li><strong>Техникийн мэдээлэл:</strong> IP хаяг, төхөөрөмжийн мэдээлэл, хуурцгийн мэдээлэл</li>
             </ul>
@@ -45,8 +45,9 @@ export default function PrivacyPage() {
               Бид таны хувийн мэдээллийг гуравдагч этгээдэд зардаггүй. Зөвхөн дараах тохиолдолд хуваалцна:
             </p>
             <ul className="mt-2 list-disc pl-5 space-y-1 text-muted-foreground">
-              <li><strong>Суpabase:</strong> мэдээллийн сан ба баталгаажуулалт</li>
+              <li><strong>Supabase:</strong> мэдээллийн сан ба нэвтрэлт</li>
               <li><strong>QPay:</strong> төлбөрийн гүйлгээ боловсруулах</li>
+              <li><strong>Skytel:</strong> захиалгын төлөвийн SMS мэдэгдэл илгээх</li>
               <li><strong>AI backend:</strong> зургийн боловсруулалт</li>
               <li>Хуулийн шаардлагаар</li>
             </ul>

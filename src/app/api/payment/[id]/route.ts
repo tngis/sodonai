@@ -1,23 +1,10 @@
-import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPayment } from "@/lib/qpay";
-import { runGeneration } from "@/app/actions/generation";
-import { getPresetModelConfig } from "@/lib/presets-server";
+import { confirmPayment } from "@/lib/payments/confirm";
 import type { Database } from "@/lib/supabase/types";
 
 type PaymentRow = Database["public"]["Tables"]["payments"]["Row"];
-type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
-
-interface OptionsSnapshot {
-  ratio: string;
-  background: string | null;
-  intensity: number | null;
-  isPrivate: boolean;
-  pricing?: { full: number; discount: number; paid: number };
-  uploadPaths: string[];
-}
 
 export async function GET(
   _req: NextRequest,
@@ -75,80 +62,7 @@ export async function GET(
 
   console.log(JSON.stringify({ event: "payment.confirmed", paymentId, orderId: payment.order_id, ts: new Date().toISOString() }));
 
-  // ── Payment confirmed ────────────────────────────────────────────────────
-  const admin = createAdminClient();
-
-  await admin
-    .from("payments")
-    .update({ status: "success", paid_at: result.paidAt ?? new Date().toISOString() })
-    .eq("id", paymentId);
-
-  await admin
-    .from("orders")
-    .update({ status: "paid" })
-    .eq("id", payment.order_id);
-
-  // Fetch order to get preset + upload paths
-  const { data: rawOrder } = await admin
-    .from("orders")
-    .select("*")
-    .eq("id", payment.order_id)
-    .single();
-
-  const order = rawOrder as unknown as OrderRow;
-
-  // Print orders have no AI generation — admin fulfils them manually.
-  if (order.kind === "print" || !order.preset_id) {
-    return NextResponse.json({ status: "paid", kind: "print", orderId: payment.order_id });
-  }
-  const presetId = order.preset_id;
-
-  const snapshot = order.options_snapshot as unknown as OptionsSnapshot;
-  // Replay the price snapshot captured at intent time (un-share repays this
-  // exact discount). Fall back to the paid amount for legacy orders that
-  // predate the snapshot.
-  const pricing = snapshot.pricing ?? { full: order.amount_mnt, discount: 0, paid: order.amount_mnt };
-
-  // Create queued generation record
-  const { data: gen } = await admin
-    .from("generations")
-    .insert({
-      order_id: payment.order_id,
-      user_id: user.id,
-      status: "queued" as const,
-      progress: 0,
-      queue_position: 1,
-      full_price_mnt: pricing.full,
-      discount_mnt: pricing.discount,
-      paid_price_mnt: pricing.paid,
-      shared_to_feed: !snapshot.isPrivate,
-    })
-    .select()
-    .single();
-
-  if (!gen) {
-    return NextResponse.json({ error: "Failed to create generation" }, { status: 500 });
-  }
-
-  const { prompt: internalPrompt, model } = await getPresetModelConfig(presetId);
-
-  // Kick off generation after this response is sent
-  after(() =>
-    runGeneration({
-      generationId: gen.id,
-      orderId: payment.order_id,
-      userId: user.id,
-      uploadPaths: snapshot.uploadPaths ?? [],
-      internalPrompt,
-      model,
-      options: {
-        ratio: snapshot.ratio,
-        background: snapshot.background,
-        intensity: snapshot.intensity,
-        isPrivate: snapshot.isPrivate,
-      },
-    })
-  );
-
-  return NextResponse.json({ status: "paid", kind: "generation", generationId: gen.id });
+  // Idempotent confirmation shared with the QPay webhook + reconcile cron.
+  const confirmed = await confirmPayment(payment, result.paidAt ?? new Date().toISOString());
+  return NextResponse.json(confirmed);
 }

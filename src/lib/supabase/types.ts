@@ -9,6 +9,7 @@ export type PaymentStatus = "pending" | "success" | "failed";
 export type WalletTxnType = "topup" | "spend" | "refund" | "adjustment";
 export type PrintProductionStatus = "pending" | "printing" | "framing" | "ready";
 export type PrintDeliveryStatus = "pending" | "shipping" | "delivered";
+export type UserRole = "user" | "order_manager" | "admin";
 
 export interface Database {
   public: {
@@ -21,6 +22,7 @@ export interface Database {
           email: string | null;
           avatar_url: string | null;
           is_admin: boolean;
+          role: UserRole;
           public_sharing_enabled: boolean;
           created_at: string;
           updated_at: string;
@@ -32,6 +34,7 @@ export interface Database {
           email?: string | null;
           avatar_url?: string | null;
           is_admin?: boolean;
+          role?: UserRole;
           public_sharing_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -41,6 +44,7 @@ export interface Database {
           email?: string | null;
           avatar_url?: string | null;
           is_admin?: boolean;
+          role?: UserRole;
           public_sharing_enabled?: boolean;
           updated_at?: string;
         };
@@ -210,6 +214,7 @@ export interface Database {
           created_at?: string;
         };
         Update: {
+          qpay_invoice_id?: string | null;
           status?: PaymentStatus;
           paid_at?: string | null;
         };
@@ -244,6 +249,7 @@ export interface Database {
           discount_mnt: number;
           paid_price_mnt: number | null;
           shared_to_feed: boolean;
+          attempt: number;
           created_at: string;
           updated_at: string;
         };
@@ -260,6 +266,7 @@ export interface Database {
           discount_mnt?: number;
           paid_price_mnt?: number | null;
           shared_to_feed?: boolean;
+          attempt?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -273,6 +280,7 @@ export interface Database {
           discount_mnt?: number;
           paid_price_mnt?: number | null;
           shared_to_feed?: boolean;
+          attempt?: number;
           updated_at?: string;
         };
         Relationships: [
@@ -459,6 +467,36 @@ export interface Database {
           }
         ];
       };
+      print_order_events: {
+        Row: {
+          id: string;
+          print_order_id: string;
+          order_id: string;
+          actor_id: string | null;
+          actor_name: string | null;
+          field: "production" | "delivery" | "note";
+          from_value: string | null;
+          to_value: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          print_order_id: string;
+          order_id: string;
+          actor_id?: string | null;
+          actor_name?: string | null;
+          field: "production" | "delivery" | "note";
+          from_value?: string | null;
+          to_value?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          actor_name?: string | null;
+          from_value?: string | null;
+          to_value?: string | null;
+        };
+        Relationships: [];
+      };
       option_suggestions: {
         Row: {
           id: string;
@@ -609,6 +647,36 @@ export interface Database {
         Row: {
           preset_id: string;
           generation_count: number;
+        };
+        Relationships: [];
+      };
+      admin_order_list: {
+        Row: {
+          id: string;
+          kind: OrderKind;
+          status: OrderStatus;
+          amount_mnt: number;
+          created_at: string;
+          user_id: string;
+          preset_id: string | null;
+          preset_name: string | null;
+          customer_name: string | null;
+          customer_phone: string | null;
+          customer_email: string | null;
+          print_id: string | null;
+          frame_id: string | null;
+          size_id: string | null;
+          ship_recipient: string | null;
+          ship_phone: string | null;
+          ship_address: string | null;
+          production_status: PrintProductionStatus | null;
+          delivery_status: PrintDeliveryStatus | null;
+          admin_note: string | null;
+          asset_storage_path: string | null;
+          generation_id: string | null;
+          generation_status: GenerationStatus | null;
+          generation_error: string | null;
+          search: string | null;
         };
         Relationships: [];
       };
