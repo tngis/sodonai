@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { cn, saveImageToDevice } from "@/lib/utils";
+import { cn, saveImageToDevice, shareImageFile } from "@/lib/utils";
 import { useEscapeRegister } from "@/hooks/use-overlay-escape";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -219,14 +219,15 @@ function OutputContent() {
     }
   };
 
+  const [sharing, setSharing] = useState(false);
   const handleShare = async (url: string) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ url, title: "aistudio.mn — AI зураг" });
-      } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success("Линк хуулагдлаа.");
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const copied = await shareImageFile(url, { title: "aistudio.mn — AI зураг" });
+      if (copied) toast.success(t("linkCopied"));
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -488,9 +489,15 @@ function OutputContent() {
             <Button
               variant="outline"
               className="w-full justify-center rounded-full"
+              disabled={sharing}
               onClick={() => images[0] && handleShare(images[0])}
             >
-              <Share2 size={16} className="mr-2" /> {t("share")}
+              {sharing ? (
+                <Loader2 size={16} className="mr-2 animate-spin" />
+              ) : (
+                <Share2 size={16} className="mr-2" />
+              )}{" "}
+              {t("share")}
             </Button>
 
             {/* Hide-from-feed — only while the image is public. Sharing is opt-in
@@ -686,10 +693,15 @@ function OutputContent() {
                 size="sm"
                 variant="outline"
                 className="rounded-full border-white/20 bg-black/40 text-white hover:bg-black/60"
+                disabled={sharing}
                 onClick={() => handleShare(images[previewIdx])}
                 aria-label={t("share")}
               >
-                <Share2 size={14} />
+                {sharing ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Share2 size={14} />
+                )}
                 <span className="hidden sm:inline">{t("share")}</span>
               </Button>
               {resultPaths[previewIdx] && (

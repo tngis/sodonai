@@ -59,3 +59,53 @@ export async function saveImageToDevice(url: string, baseName: string): Promise<
   a.click();
   URL.revokeObjectURL(objectUrl);
 }
+
+// Share the actual image FILE via the Web Share API so iOS/Android offer
+// Instagram / Facebook Story·Reel·Post (not just a link). Falls back, in order:
+// file-share → link-share → copy-to-clipboard. Returns true ONLY when it fell all
+// the way to clipboard, so the caller can toast "link copied". Unlike
+// saveImageToDevice (which downloads on failure), the fallback here stays a
+// share/copy because this backs an explicit "Share" action, not a save.
+export async function shareImageFile(
+  url: string,
+  meta: { title?: string; text?: string },
+): Promise<boolean> {
+  try {
+    // Same opaque-cache CORS gotcha as saveImageToDevice — force a network fetch
+    // so the bytes are readable (see that function's comment for the full why).
+    const res = await fetch(url, { cache: "reload" });
+    const blob = await res.blob();
+    const type = blob.type || "image/jpeg";
+    const ext = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";
+    const file = new File([blob], `aistudio.${ext}`, { type });
+
+    if (
+      typeof navigator.canShare === "function" &&
+      navigator.canShare({ files: [file] })
+    ) {
+      // No `url` field alongside files — some browsers ignore or reject it.
+      await navigator.share({ files: [file], title: meta.title, text: meta.text });
+      return false;
+    }
+  } catch (err) {
+    // User dismissed the file share sheet — done, don't fall through to a link.
+    if (err instanceof DOMException && err.name === "AbortError") return false;
+    // Any other failure (CORS/network/share error) → fall through to link-share.
+    // Warn so devtools makes a double share-sheet easy to spot.
+    console.warn("shareImageFile: file share failed, falling back to link", err);
+  }
+
+  // Fallback 1: link-based Web Share (the previous behaviour).
+  if (navigator.share) {
+    try {
+      await navigator.share({ url, title: meta.title });
+    } catch {
+      // Dismissed — ignore.
+    }
+    return false;
+  }
+
+  // Fallback 2: no Web Share at all (desktop Firefox etc) → copy the link.
+  await navigator.clipboard.writeText(url);
+  return true;
+}

@@ -21,7 +21,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getOutputUrlPairs } from "@/app/actions/storage";
 import { setAvatarFromGallery } from "@/app/actions/profile";
 import { useUserGenerations } from "@/lib/use-generations";
-import { saveImageToDevice } from "@/lib/utils";
+import { saveImageToDevice, shareImageFile } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -132,14 +132,15 @@ export default function GalleryPage() {
     }
   };
 
+  const [sharingUrl, setSharingUrl] = useState<string | null>(null);
   const handleShare = async (url: string) => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ url, title: "aistudio.mn — AI зураг" });
-      } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success("Линк хуулагдлаа.");
+    if (sharingUrl) return;
+    setSharingUrl(url);
+    try {
+      const copied = await shareImageFile(url, { title: "aistudio.mn — AI зураг" });
+      if (copied) toast.success(t("linkCopied"));
+    } finally {
+      setSharingUrl(null);
     }
   };
 
@@ -230,6 +231,7 @@ export default function GalleryPage() {
                     <Download size={14} />
                   </button>
                   <button
+                    disabled={sharingUrl === img.signedUrl}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleShare(img.signedUrl);
@@ -237,7 +239,11 @@ export default function GalleryPage() {
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
                     aria-label="Хуваалцах"
                   >
-                    <Share2 size={14} />
+                    {sharingUrl === img.signedUrl ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Share2 size={14} />
+                    )}
                   </button>
                   <button
                     onClick={(e) => {
