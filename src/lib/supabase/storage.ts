@@ -5,6 +5,7 @@
 import {
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl as presign } from "@aws-sdk/s3-request-presigner";
@@ -216,9 +217,31 @@ export async function storeShareCard(imageData: string, token: string): Promise<
       Body: body,
       ContentType: "image/jpeg",
       CacheControl: "public, max-age=31536000, immutable",
+      // Stash the final pixel dimensions so the /s/{token} page can declare an
+      // accurate og:image aspect ratio per preset (read back via HEAD below)
+      // without storing them in the DB or re-downloading the image.
+      Metadata: { w: String(width), h: String(height) },
     }),
   );
   return publicUrl(path);
+}
+
+// Read a stored share card's pixel dimensions from its object metadata (set in
+// storeShareCard). A cheap HEAD — no image download. Returns null for cards made
+// before dimensions were recorded, so the caller falls back to a square hint.
+export async function getShareCardDimensions(
+  token: string,
+): Promise<{ width: number; height: number } | null> {
+  try {
+    const head = await r2().send(
+      new HeadObjectCommand({ Bucket: EXAMPLES_BUCKET, Key: `share/${token}.jpg` }),
+    );
+    const w = Number(head.Metadata?.w);
+    const h = Number(head.Metadata?.h);
+    return w > 0 && h > 0 ? { width: w, height: h } : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Deterministic ("stable") presigned URLs ──────────────────────────────────

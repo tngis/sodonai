@@ -13,12 +13,22 @@ type Params = { params: Promise<{ token: string }> };
 
 const DESCRIPTION = "AI-аар бүтээсэн зураг. Чи ч бас секундын дотор ийм зургаа хий.";
 
+// Brand shown in the share title — the deploy domain, so it always matches the
+// link a visitor lands on (sodonai.vercel.app today, the real domain later).
+const BRAND = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://aistudio.mn").hostname;
+  } catch {
+    return "aistudio.mn";
+  }
+})();
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { token } = await params;
   const data = await getSharePageData(token);
-  if (!data) return { title: "aistudio.mn" };
+  if (!data) return { title: BRAND };
 
-  const title = data.presetName ? `${data.presetName} — aistudio.mn` : "aistudio.mn — AI зураг";
+  const title = data.presetName ? `${data.presetName} — ${BRAND}` : `${BRAND} — AI зураг`;
   return {
     title,
     description: DESCRIPTION,
@@ -27,7 +37,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       description: DESCRIPTION,
       type: "website",
       url: `/s/${token}`,
-      images: [{ url: data.cardUrl, width: 1200, height: 1200 }],
+      // Real per-preset dimensions (legacy cards fall back to a square hint).
+      images: [{ url: data.cardUrl, width: data.width ?? 1200, height: data.height ?? 1200 }],
     },
     twitter: { card: "summary_large_image", title, description: DESCRIPTION, images: [data.cardUrl] },
   };
