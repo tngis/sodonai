@@ -60,12 +60,52 @@ export async function saveImageToDevice(url: string, baseName: string): Promise<
   URL.revokeObjectURL(objectUrl);
 }
 
+// Composite a small "✦ aistudio.mn" pill into the bottom-right of an image blob,
+// in-browser via canvas, so a shared IG/FB Story/Post carries the brand. Only the
+// SHARE copy is branded — the owner's download (saveImageToDevice) stays clean.
+// Throws on an unsupported canvas (old browser) → callers fall back to the
+// original, unbranded blob. Exported only for the share path below.
+async function brandImageBlob(blob: Blob): Promise<Blob> {
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no 2d context");
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close?.();
+
+  const label = "✦ aistudio.mn";
+  const fs = Math.max(18, Math.round(canvas.width * 0.03));
+  ctx.font = `700 ${fs}px system-ui, -apple-system, sans-serif`;
+  ctx.textBaseline = "middle";
+  const padX = fs * 0.7;
+  const padY = fs * 0.45;
+  const pillW = ctx.measureText(label).width + padX * 2;
+  const pillH = fs + padY * 2;
+  const margin = Math.round(canvas.width * 0.025);
+  const x = canvas.width - pillW - margin;
+  const y = canvas.height - pillH - margin;
+
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.beginPath();
+  ctx.roundRect(x, y, pillW, pillH, pillH / 2); // roundRect: Safari 16+/Chrome 99+
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(label, x + padX, y + pillH / 2);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/jpeg", 0.92);
+  });
+}
+
 // Share the actual image FILE via the Web Share API so iOS/Android offer
-// Instagram / Facebook Story·Reel·Post (not just a link). Falls back, in order:
-// file-share → link-share → copy-to-clipboard. Returns true ONLY when it fell all
-// the way to clipboard, so the caller can toast "link copied". Unlike
-// saveImageToDevice (which downloads on failure), the fallback here stays a
-// share/copy because this backs an explicit "Share" action, not a save.
+// Instagram / Facebook Story·Reel·Post (not just a link). The shared file is
+// brand-watermarked (see brandImageBlob). Falls back, in order: file-share →
+// link-share → copy-to-clipboard. Returns true ONLY when it fell all the way to
+// clipboard, so the caller can toast "link copied". Unlike saveImageToDevice
+// (which downloads on failure), the fallback here stays a share/copy because this
+// backs an explicit "Share" action, not a save.
 export async function shareImageFile(
   url: string,
   meta: { title?: string; text?: string },
@@ -74,7 +114,9 @@ export async function shareImageFile(
     // Same opaque-cache CORS gotcha as saveImageToDevice — force a network fetch
     // so the bytes are readable (see that function's comment for the full why).
     const res = await fetch(url, { cache: "reload" });
-    const blob = await res.blob();
+    const original = await res.blob();
+    // Watermark the share copy; if the canvas path fails, share the original.
+    const blob = await brandImageBlob(original).catch(() => original);
     const type = blob.type || "image/jpeg";
     const ext = type.includes("png") ? "png" : type.includes("webp") ? "webp" : "jpg";
     const file = new File([blob], `aistudio.${ext}`, { type });

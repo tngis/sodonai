@@ -9,9 +9,9 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl as presign } from "@aws-sdk/s3-request-presigner";
 import sharp from "sharp";
-import { r2, UPLOADS_BUCKET, OUTPUTS_BUCKET } from "../r2/client";
+import { r2, UPLOADS_BUCKET, OUTPUTS_BUCKET, EXAMPLES_BUCKET, publicUrl } from "../r2/client";
 
-export { UPLOADS_BUCKET, OUTPUTS_BUCKET };
+export { UPLOADS_BUCKET, OUTPUTS_BUCKET, EXAMPLES_BUCKET };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
@@ -152,6 +152,73 @@ export async function storeThumbFile(
     })
   );
   return path;
+}
+
+// Build a BRANDED share card for the public /s/{token} page and store it in the
+// PUBLIC examples bucket, returning a permanent public URL (Facebook's crawler
+// needs a stable, non-expiring og:image — a presigned URL would expire and FB
+// caches it). The card is the output image (max 1200px, aspect kept) with an
+// "aistudio.mn" pill composited into the bottom-right corner — the same brand
+// watermark the direct social shares carry. The owner's own download stays clean.
+// imageData: a presigned output URL or a base64 data URI.
+export async function storeShareCard(imageData: string, token: string): Promise<string> {
+  let inputBuf: Buffer;
+  if (imageData.startsWith("data:")) {
+    const [, b64] = imageData.split(",");
+    inputBuf = Buffer.from(b64, "base64");
+  } else {
+    const res = await fetch(imageData);
+    if (!res.ok) throw new Error(`Share card fetch failed: ${res.status}`);
+    inputBuf = Buffer.from(await res.arrayBuffer());
+  }
+
+  // Resize first so the badge is sized against the final pixels.
+  const { data: resized, info } = await sharp(inputBuf, { failOn: "none" })
+    .rotate()
+    .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+    .toBuffer({ resolveWithObject: true });
+
+  const { width, height } = info;
+  // A full-canvas transparent SVG with a rounded pill in the bottom-right. Sizes
+  // scale with the image so it reads on both small and large outputs.
+  const fs = Math.max(20, Math.round(width * 0.032));
+  const padX = Math.round(fs * 0.7);
+  const padY = Math.round(fs * 0.45);
+  const margin = Math.round(width * 0.025);
+  // Plain "aistudio.mn" with the generic `sans-serif` family: sharp renders SVG
+  // text through fontconfig, where system-ui / decorative glyphs may be missing
+  // on the deploy host — basic Latin in sans-serif is always available.
+  const label = "aistudio.mn";
+  const pillW = Math.round(fs * 0.62 * label.length) + padX * 2;
+  const pillH = fs + padY * 2;
+  const x = width - pillW - margin;
+  const y = height - pillH - margin;
+  const svg = Buffer.from(
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="${x}" y="${y}" width="${pillW}" height="${pillH}" rx="${Math.round(pillH / 2)}"
+            fill="rgba(0,0,0,0.55)"/>
+      <text x="${x + pillW / 2}" y="${y + pillH / 2}" fill="#ffffff"
+            font-family="sans-serif" font-weight="700"
+            font-size="${fs}" text-anchor="middle" dominant-baseline="central">${label}</text>
+    </svg>`,
+  );
+
+  const body = await sharp(resized)
+    .composite([{ input: svg, top: 0, left: 0 }])
+    .jpeg({ quality: 88 })
+    .toBuffer();
+
+  const path = `share/${token}.jpg`;
+  await r2().send(
+    new PutObjectCommand({
+      Bucket: EXAMPLES_BUCKET,
+      Key: path,
+      Body: body,
+      ContentType: "image/jpeg",
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
+  );
+  return publicUrl(path);
 }
 
 // ── Deterministic ("stable") presigned URLs ──────────────────────────────────

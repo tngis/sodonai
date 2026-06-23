@@ -249,6 +249,7 @@ export interface Database {
           discount_mnt: number;
           paid_price_mnt: number | null;
           shared_to_feed: boolean;
+          share_token: string | null;
           attempt: number;
           created_at: string;
           updated_at: string;
@@ -266,6 +267,7 @@ export interface Database {
           discount_mnt?: number;
           paid_price_mnt?: number | null;
           shared_to_feed?: boolean;
+          share_token?: string | null;
           attempt?: number;
           created_at?: string;
           updated_at?: string;
@@ -280,6 +282,7 @@ export interface Database {
           discount_mnt?: number;
           paid_price_mnt?: number | null;
           shared_to_feed?: boolean;
+          share_token?: string | null;
           attempt?: number;
           updated_at?: string;
         };

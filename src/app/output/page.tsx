@@ -19,13 +19,14 @@ import {
   UserRound,
   EyeOff,
   Check,
+  Globe,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
 import { reportGeneration } from "@/app/actions/generation";
 import { getOutputUrls } from "@/app/actions/storage";
 import { setAvatarFromGallery } from "@/app/actions/profile";
-import { unshareGeneration } from "@/app/actions/showcase";
+import { unshareGeneration, createShareLink } from "@/app/actions/showcase";
 import { formatMnt } from "@/lib/wallet";
 import { Button } from "@/components/ui/button";
 import { Celebrate } from "@/components/motion/celebrate";
@@ -228,6 +229,26 @@ function OutputContent() {
       if (copied) toast.success(t("linkCopied"));
     } finally {
       setSharing(false);
+    }
+  };
+
+  // Facebook "link post": mint a public /s/{token} page (branded OG card) and
+  // open FB's share dialog with it. Clicking the post deep-links back into the app.
+  const [fbSharing, setFbSharing] = useState(false);
+  const handleShareToFacebook = async () => {
+    if (!generationId || fbSharing) return;
+    setFbSharing(true);
+    try {
+      const { url } = await createShareLink(generationId);
+      window.open(
+        `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Холбоос үүсгэхэд алдаа гарлаа.");
+    } finally {
+      setFbSharing(false);
     }
   };
 
@@ -498,6 +519,19 @@ function OutputContent() {
                 <Share2 size={16} className="mr-2" />
               )}{" "}
               {t("share")}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-center rounded-full"
+              disabled={fbSharing}
+              onClick={handleShareToFacebook}
+            >
+              {fbSharing ? (
+                <Loader2 size={16} className="mr-2 animate-spin" />
+              ) : (
+                <Globe size={16} className="mr-2" />
+              )}{" "}
+              {t("shareToFacebook")}
             </Button>
 
             {/* Hide-from-feed — only while the image is public. Sharing is opt-in
