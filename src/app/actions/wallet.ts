@@ -1,12 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createInvoice, type QPayDeepLink } from "@/lib/qpay";
-import { isValidTopUpAmount } from "@/lib/wallet";
+import { createTopUpIntentCore, type TopUpIntentResult } from "@/lib/payments/topup";
 import type { Database, WalletTxnType } from "@/lib/supabase/types";
 
-type TopUpRow = Database["public"]["Tables"]["wallet_topups"]["Row"];
+export type { TopUpIntentResult };
 
 export interface WalletTransaction {
   id: string;
@@ -60,42 +58,9 @@ export async function getWalletTransactions(limit = 50): Promise<WalletTransacti
   }));
 }
 
-export interface TopUpIntentResult {
-  topUpId: string;
-  amountMnt: number;
-  qrImage: string;
-  deepLinks: QPayDeepLink[];
-}
-
-// Start a wallet top-up: create a pending wallet_topups row and a QPay invoice.
-// The client polls /api/wallet/topup/{id}; on confirmation the wallet is
-// credited. (Reuses the same QPay machinery as order payment — the only
-// difference is the "fulfillment" credits the wallet instead of generating.)
+// Thin cookie-auth wrapper around the shared core (the mobile path authenticates
+// via Bearer in src/app/api/wallet/topup/route.ts and calls the same core).
 export async function createTopUpIntent(amountMnt: number): Promise<TopUpIntentResult> {
   const { supabase, user } = await requireUser();
-  if (!isValidTopUpAmount(amountMnt)) throw new Error("Цэнэглэх дүн буруу байна.");
-
-  const { data: topup, error } = await supabase
-    .from("wallet_topups")
-    .insert({ user_id: user.id, amount_mnt: amountMnt, status: "pending" })
-    .select()
-    .single();
-
-  const row = topup as TopUpRow | null;
-  if (error || !row) throw new Error(error?.message ?? "Цэнэглэлт үүсгэхэд алдаа гарлаа.");
-
-  const invoice = await createInvoice(row.id, amountMnt, "aistudio.mn — Хэтэвч цэнэглэлт");
-
-  const admin = createAdminClient();
-  await admin
-    .from("wallet_topups")
-    .update({ qpay_invoice_id: invoice.invoiceId })
-    .eq("id", row.id);
-
-  return {
-    topUpId: row.id,
-    amountMnt,
-    qrImage: invoice.qrImage,
-    deepLinks: invoice.deepLinks,
-  };
+  return createTopUpIntentCore({ supabase, user, amountMnt });
 }
