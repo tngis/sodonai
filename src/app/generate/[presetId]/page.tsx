@@ -26,11 +26,8 @@ import {
 import { useLang } from "@/contexts/LanguageContext";
 import { getPreset, type Category, type Preset } from "@/lib/catalog";
 import { banks } from "@/lib/banks";
-import {
-  createPaymentIntent,
-  payWithWallet,
-  type PaymentIntentResult,
-} from "@/app/actions/payment";
+import { createPaymentIntent, payWithWallet } from "@/app/actions/payment";
+import type { PaymentIntentResult } from "@/lib/payments/intent";
 import { getWalletBalance } from "@/app/actions/wallet";
 import { formatMnt } from "@/lib/wallet";
 import { computeShareDiscount } from "@/lib/pricing";

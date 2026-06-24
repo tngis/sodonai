@@ -4,8 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createTopUpIntentCore, type TopUpIntentResult } from "@/lib/payments/topup";
 import type { Database, WalletTxnType } from "@/lib/supabase/types";
 
-export type { TopUpIntentResult };
-
 export interface WalletTransaction {
   id: string;
   amountMnt: number;

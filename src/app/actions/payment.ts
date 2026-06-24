@@ -16,8 +16,6 @@ import {
 } from "@/lib/payments/intent";
 import type { Database } from "@/lib/supabase/types";
 
-export type { PaymentIntentResult, WalletPaymentResult, ResumePaymentResult };
-
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 type OrderUpdate = Database["public"]["Tables"]["orders"]["Update"];
 
