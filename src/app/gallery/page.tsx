@@ -5,16 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "motion/react";
-import {
-  Download,
-  Share2,
-  Frame,
-  AlertTriangle,
-  Loader2,
-  UserRound,
-  Eye,
-  ImageOff,
-} from "lucide-react";
+import { AlertTriangle, Loader2, Eye, ImageOff } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -137,7 +128,9 @@ export default function GalleryPage() {
     if (sharingUrl) return;
     setSharingUrl(url);
     try {
-      const copied = await shareImageFile(url, { title: "aistudio.mn — AI зураг" });
+      const copied = await shareImageFile(url, {
+        title: "aistudio.mn — AI зураг",
+      });
       if (copied) toast.success(t("linkCopied"));
     } finally {
       setSharingUrl(null);

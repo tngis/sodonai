@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteAuth } from "@/lib/supabase/route-auth";
 import {
   type Capability,
   type StaffRole,
@@ -40,6 +41,38 @@ export async function requireStaff(capability?: Capability): Promise<StaffUser> 
   if (!staff) redirect("/");
   if (capability && !roleHasCapability(staff.role, capability)) {
     redirect(roleHome(staff.role));
+  }
+  return staff;
+}
+
+// For API route handlers (mobile): resolve the caller from a Bearer token (or
+// cookies), then require a staff role — optionally with a capability. Returns
+// null when unauthenticated/non-staff so the route can answer 401; throws a
+// dedicated marker when staff but lacking the capability so the route can 403.
+export class ForbiddenError extends Error {}
+
+export async function getRouteStaff(
+  req: Request,
+  capability?: Capability,
+): Promise<StaffUser | null> {
+  const auth = await getRouteAuth(req);
+  if (!auth) return null;
+
+  const { data } = await auth.supabase
+    .from("users")
+    .select("role, name")
+    .eq("id", auth.user.id)
+    .single();
+
+  if (!isStaffRole(data?.role)) return null;
+  const staff: StaffUser = {
+    id: auth.user.id,
+    email: auth.user.email ?? null,
+    name: data!.name,
+    role: data!.role,
+  };
+  if (capability && !roleHasCapability(staff.role, capability)) {
+    throw new ForbiddenError("Зөвшөөрөлгүй: эрх хүрэлцэхгүй байна.");
   }
   return staff;
 }
