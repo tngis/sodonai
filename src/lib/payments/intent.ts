@@ -365,7 +365,20 @@ export async function payPendingWithWalletCore({
 
   const admin = createAdminClient();
 
-  // Debit the wallet atomically (idempotent on the order id). Insufficient → throw.
+  // Atomically claim the order (pending→paid) BEFORE touching the wallet. If no
+  // row comes back, another path (QPay poll/webhook/cron) already settled this
+  // order — bail out without debiting so we never double-charge QPay + wallet.
+  // (The status check above is only a fast pre-check; this is the real guard.)
+  const { data: claimed } = await admin
+    .from("orders")
+    .update({ status: "paid" } as OrderUpdate)
+    .eq("id", order.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!claimed?.length) throw new Error("Энэ захиалга аль хэдийн төлөгдсөн байна.");
+
+  // Debit the wallet atomically (idempotent on the order id). If the balance is
+  // short, compensate by reverting our claim so QPay can still settle the order.
   const debit = await debitWallet({
     userId: user.id,
     amountMnt: order.amount_mnt,
@@ -373,7 +386,14 @@ export async function payPendingWithWalletCore({
     orderId: order.id,
     note: `aistudio.mn — ${order.preset_id ?? "хэвлэл"}`,
   });
-  if (!debit.ok) throw new Error("Хэтэвчийн үлдэгдэл хүрэлцэхгүй байна.");
+  if (!debit.ok) {
+    await admin
+      .from("orders")
+      .update({ status: "pending" } as OrderUpdate)
+      .eq("id", order.id)
+      .eq("status", "paid");
+    throw new Error("Хэтэвчийн үлдэгдэл хүрэлцэхгүй байна.");
+  }
 
   // Cancel the abandoned QPay invoice(s) so the poll/webhook/cron can't later
   // double-charge this order.
@@ -392,12 +412,6 @@ export async function payPendingWithWalletCore({
     amount_mnt: order.amount_mnt,
     paid_at: new Date().toISOString(),
   });
-
-  await admin
-    .from("orders")
-    .update({ status: "paid" } as OrderUpdate)
-    .eq("id", order.id)
-    .eq("status", "pending");
 
   // Print orders have no AI generation — fulfilled manually by an admin.
   if (order.kind === "print" || !order.preset_id) {

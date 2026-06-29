@@ -1,0 +1,24 @@
+name: reconcile-payments
+
+# Backstop sweep that confirms QPay payments AND wallet top-ups that the live
+# webhook / client poll never finished (e.g. the user paid then closed the app),
+# and re-runs generations for paid orders that never got one. The route is
+# idempotent. Runs more often than fail-stale (every 5 min) because a stranded
+# top-up is real money. Requires the CRON_SECRET repo secret to match the
+# deployment's CRON_SECRET env var.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger payment + top-up + orphan reconcile
+        # -f fails the step on any non-2xx HTTP status; -sS keeps output quiet
+        # but still surfaces errors. authorized() accepts the Bearer header.
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://sodonai.vercel.app/api/cron/reconcile-payments

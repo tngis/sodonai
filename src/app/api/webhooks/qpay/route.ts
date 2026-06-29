@@ -3,9 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPayment } from "@/lib/qpay";
 import { confirmPayment } from "@/lib/payments/confirm";
+import { confirmTopUp } from "@/lib/payments/topup";
 import type { Database } from "@/lib/supabase/types";
 
 type PaymentRow = Database["public"]["Tables"]["payments"]["Row"];
+type TopUpRow = Database["public"]["Tables"]["wallet_topups"]["Row"];
 
 // QPay sends a POST callback when a payment is confirmed. This is the live
 // fast-path; /api/payment/[id] polling and /api/cron/reconcile-payments are
@@ -57,7 +59,22 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle();
   const payment = rawPayment as unknown as PaymentRow | null;
-  if (!payment) return NextResponse.json({ ok: true, ignored: "unknown invoice" });
+  if (!payment) {
+    // Not a generation/print payment — it may be a wallet top-up, which lives in a
+    // separate table with its own invoice id. confirmTopUp re-verifies with QPay
+    // and credits idempotently (key `topup:{id}`).
+    const { data: rawTopup } = await admin
+      .from("wallet_topups")
+      .select("*")
+      .eq("qpay_invoice_id", invoiceId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const topup = rawTopup as unknown as TopUpRow | null;
+    if (!topup) return NextResponse.json({ ok: true, ignored: "unknown invoice" });
+    const res = await confirmTopUp(topup);
+    return NextResponse.json({ ok: true, topup: res.status });
+  }
   if (payment.status === "success") return NextResponse.json({ ok: true, already: true });
 
   // Defense in depth: verify with QPay rather than trusting the callback's claim.

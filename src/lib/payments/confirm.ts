@@ -82,6 +82,30 @@ export async function confirmPayment(
     return { status: "paid", kind: "generation", generationId: null };
   }
 
+  const generationId = await ensureGenerationForOrder(order);
+  return { status: "paid", kind: "generation", generationId };
+}
+
+// Create (or reuse) the AI generation for a paid generation order and kick it off
+// via after(). Idempotent: returns an existing generation's id rather than making
+// a second one. Extracted from confirmPayment so the reconcile cron can recover an
+// "orphan" — a paid order whose generation insert failed and was never retried by
+// either the fail-stale sweep (no generation row to find) or the payment sweep
+// (payment already success). Must run in a request scope (uses after()).
+export async function ensureGenerationForOrder(order: OrderRow): Promise<string | null> {
+  const admin = createAdminClient();
+
+  if (order.kind === "print" || !order.preset_id) return null;
+
+  const { data: existing } = await admin
+    .from("generations")
+    .select("id")
+    .eq("order_id", order.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existing) return (existing as { id: string }).id;
+
   const snapshot = order.options_snapshot as unknown as OptionsSnapshot;
   const pricing = snapshot.pricing ?? { full: order.amount_mnt, discount: 0, paid: order.amount_mnt };
 
@@ -89,7 +113,7 @@ export async function confirmPayment(
     .from("generations")
     .insert({
       order_id: order.id,
-      user_id: payment.user_id,
+      user_id: order.user_id,
       status: "queued" as const,
       progress: 0,
       queue_position: 1,
@@ -109,7 +133,7 @@ export async function confirmPayment(
     runGeneration({
       generationId: gen.id,
       orderId: order.id,
-      userId: payment.user_id,
+      userId: order.user_id,
       uploadPaths: snapshot.uploadPaths ?? [],
       internalPrompt,
       model,
@@ -121,5 +145,5 @@ export async function confirmPayment(
     }),
   );
 
-  return { status: "paid", kind: "generation", generationId: gen.id };
+  return gen.id;
 }
