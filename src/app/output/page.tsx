@@ -9,7 +9,6 @@ import {
   Frame,
   Share2,
   RefreshCw,
-  Flag,
   X,
   ZoomIn,
   AlertTriangle,
@@ -23,7 +22,6 @@ import {
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { createClient } from "@/lib/supabase/client";
-import { reportGeneration } from "@/app/actions/generation";
 import { getOutputUrls } from "@/app/actions/storage";
 import { setAvatarFromGallery } from "@/app/actions/profile";
 import { unshareGeneration, createShareLink } from "@/app/actions/showcase";
@@ -225,7 +223,9 @@ function OutputContent() {
     if (sharing) return;
     setSharing(true);
     try {
-      const copied = await shareImageFile(url, { title: "aistudio.mn — AI зураг" });
+      const copied = await shareImageFile(url, {
+        title: "aistudio.mn — AI зураг",
+      });
       if (copied) toast.success(t("linkCopied"));
     } finally {
       setSharing(false);
@@ -246,16 +246,12 @@ function OutputContent() {
         "noopener,noreferrer",
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Холбоос үүсгэхэд алдаа гарлаа.");
+      toast.error(
+        err instanceof Error ? err.message : "Холбоос үүсгэхэд алдаа гарлаа.",
+      );
     } finally {
       setFbSharing(false);
     }
-  };
-
-  const handleReport = async () => {
-    if (!generationId) return;
-    await reportGeneration(generationId);
-    toast.info(t("report") + " — баярлалаа.");
   };
 
   const [settingAvatar, setSettingAvatar] = useState(false);
@@ -598,7 +594,7 @@ function OutputContent() {
             role="dialog"
             aria-modal="true"
             aria-label="Зургийн томруулсан харагдац"
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
             onClick={() => setPreviewIdx(null)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -669,9 +665,7 @@ function OutputContent() {
                   onClick={(e) => {
                     e.stopPropagation();
                     setPreviewIdx((i) =>
-                      i === null
-                        ? i
-                        : (i - 1 + images.length) % images.length,
+                      i === null ? i : (i - 1 + images.length) % images.length,
                     );
                   }}
                   className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Reorder, useDragControls } from "motion/react";
 import { toast } from "sonner";

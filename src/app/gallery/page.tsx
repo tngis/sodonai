@@ -7,15 +7,11 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import { AlertTriangle, Loader2, Eye, ImageOff } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { getOutputUrlPairs } from "@/app/actions/storage";
-import { setAvatarFromGallery } from "@/app/actions/profile";
 import { useUserGenerations } from "@/lib/use-generations";
-import { saveImageToDevice, shareImageFile } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 
 // Placeholder card shown while a generation is still running. Ticks an elapsed
 // counter; it's replaced by the real image once the generation finishes.
@@ -56,7 +52,6 @@ interface GalleryItem {
 
 export default function GalleryPage() {
   const { t } = useLang();
-  const { refreshProfile } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
@@ -114,43 +109,6 @@ export default function GalleryPage() {
     if (active.length < prevActive.current) load();
     prevActive.current = active.length;
   }, [active.length, load]);
-
-  const handleDownload = async (url: string, index: number) => {
-    try {
-      await saveImageToDevice(url, `aistudio_${index + 1}`);
-    } catch {
-      toast.error("Татахад алдаа гарлаа.");
-    }
-  };
-
-  const [sharingUrl, setSharingUrl] = useState<string | null>(null);
-  const handleShare = async (url: string) => {
-    if (sharingUrl) return;
-    setSharingUrl(url);
-    try {
-      const copied = await shareImageFile(url, {
-        title: "aistudio.mn — AI зураг",
-      });
-      if (copied) toast.success(t("linkCopied"));
-    } finally {
-      setSharingUrl(null);
-    }
-  };
-
-  const [settingAvatar, setSettingAvatar] = useState(false);
-  const handleSetProfile = async (storagePath: string) => {
-    if (settingAvatar) return;
-    setSettingAvatar(true);
-    try {
-      await setAvatarFromGallery(storagePath);
-      refreshProfile();
-      toast.success(t("avatarUpdated"));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Алдаа гарлаа.");
-    } finally {
-      setSettingAvatar(false);
-    }
-  };
 
   return (
     <div className="px-4 py-6 md:px-6 md:py-10">
@@ -212,56 +170,6 @@ export default function GalleryPage() {
                     <Eye size={11} /> {t("sharedBadge")}
                   </span>
                 )}
-                {/*<div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/0 opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDownload(img.signedUrl, i);
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
-                    aria-label="Татах"
-                  >
-                    <Download size={14} />
-                  </button>
-                  <button
-                    disabled={sharingUrl === img.signedUrl}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleShare(img.signedUrl);
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed)"
-                    aria-label="Хуваалцах"
-                  >
-                    {sharingUrl === img.signedUrl ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Share2 size={14} />
-                    )}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSetProfile(img.storage_path);
-                    }}
-                    disabled={settingAvatar}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-background/90 text-foreground shadow-(--shadow-floating) backdrop-blur-sm transition-all hover:text-primary active:shadow-(--shadow-pressed) disabled:opacity-60"
-                    aria-label={t("setAsProfilePicture")}
-                  >
-                    <UserRound size={14} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(
-                        `/print?asset=${encodeURIComponent(img.storage_path)}`,
-                      );
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-(--shadow-key) transition-all hover:brightness-110 active:shadow-(--shadow-key-pressed)"
-                    aria-label={t("orderPrint")}
-                  >
-                    <Frame size={14} />
-                  </button>
-                </div>*/}
               </motion.div>
             ))}
           </div>

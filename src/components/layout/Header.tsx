@@ -13,7 +13,6 @@ import {
   Globe,
   Image as ImageIcon,
   Wallet,
-  Zap,
   ChevronRight,
   ShieldCheck,
 } from "lucide-react";
@@ -103,7 +102,9 @@ export function Header() {
     { href: "/orders", icon: ShoppingBag, label: t("myOrders") },
     { href: "/settings", icon: Settings, label: t("settings") },
     { href: "/help", icon: HelpCircle, label: t("helpFaq") },
-    ...(staffRole ? [{ href: roleHome(staffRole), icon: ShieldCheck, label: "Админ" }] : []),
+    ...(staffRole
+      ? [{ href: roleHome(staffRole), icon: ShieldCheck, label: "Админ" }]
+      : []),
   ];
   // Only the first link matching the current path is "active".
   const activeMenuIndex = menuLinks.findIndex(

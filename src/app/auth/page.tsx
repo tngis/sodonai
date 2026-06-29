@@ -20,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import NextImage from "next/image";
 
 type Method = "phone" | "email";
 type PhoneStep = "phone" | "otp" | "name";

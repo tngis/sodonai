@@ -61,7 +61,7 @@ function ResultPreview({
 
   return (
     <figure className="mx-auto w-full max-w-sm">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-muted shadow-(--shadow-recessed) glow-brand-sm">
+      <div className="relative aspect-4/5 overflow-hidden rounded-2xl bg-muted shadow-(--shadow-recessed) glow-brand-sm">
         {src ? (
           <button
             type="button"
@@ -106,7 +106,7 @@ function ResultPreview({
       <AnimatePresence>
         {zoom && src && (
           <motion.div
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4"
+            className="fixed inset-0 z-70 flex items-center justify-center bg-black/85 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -310,7 +310,7 @@ export default function PresetClient({
                       className="size-12 text-muted-foreground"
                     />
                   }
-                  className="aspect-[4/5] rounded-2xl shadow-(--shadow-recessed) glow-brand-sm"
+                  className="aspect-4/5 rounded-2xl shadow-(--shadow-recessed) glow-brand-sm"
                 />
                 <figcaption className="mt-2 text-center text-xs leading-relaxed text-muted-foreground">
                   {t("sampleNote")}
